@@ -35,7 +35,6 @@ type ReleaseGroup struct {
 var addCmd = &cobra.Command{
 	Use:   `add "<artist name>"`,
 	Short: "Search and add releases by artist",
-	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		manual, _ := cmd.Flags().GetBool("manual")
 		if manual {
@@ -219,7 +218,6 @@ func makeRequest(url string) (*http.Response, error) {
 }
 
 func init() {
-	addCmd.Flags().Bool("manual", false, "Manually enter release details")
 	addCmd.Flags().Bool("manual", false, "Manually enter release details")
 	addCmd.Flags().Int("page-size", 40, "Number of releases per page")
 	rootCmd.AddCommand(addCmd)
