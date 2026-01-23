@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/spf13/cobra"
 	"musiccat/internal/config"
+
+	"github.com/spf13/cobra"
 )
 
 var setFormatCmd = &cobra.Command{
@@ -13,8 +14,15 @@ var setFormatCmd = &cobra.Command{
 	Short: "Set the current batch format for additions",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		format := strings.Title(strings.ToLower(args[0]))
-		if !isValidFormat(format) {
+		input := strings.ToLower(args[0])
+		var format string
+		for _, f := range ValidFormats {
+			if strings.ToLower(f) == input {
+				format = f
+				break
+			}
+		}
+		if format == "" {
 			return fmt.Errorf("invalid format: %s. Valid formats: %s", args[0], strings.Join(ValidFormats, ", "))
 		}
 
@@ -26,15 +34,6 @@ var setFormatCmd = &cobra.Command{
 		cfg.CurrentFormat = format
 		return config.SaveConfig(cfg)
 	},
-}
-
-func isValidFormat(format string) bool {
-	for _, f := range ValidFormats {
-		if f == format {
-			return true
-		}
-	}
-	return false
 }
 
 func init() {

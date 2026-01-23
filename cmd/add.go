@@ -10,9 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spf13/cobra"
 	"musiccat/internal/config"
 	"musiccat/internal/db"
+
+	"github.com/spf13/cobra"
 )
 
 type ArtistSearchResponse struct {
@@ -264,7 +265,7 @@ func addManual() error {
 	artist := promptString("Artist: ")
 	title := promptString("Title: ")
 	manualYear := promptOptionalInt("Year (optional): ")
-	formatCategory := promptValidFormat("Format category (CD, Vinyl, Tape, Digital): ")
+	formatCategory := promptValidFormat("Format category (CD, Vinyl, Cassette): ")
 	formatDetailInput := promptString("Format detail (optional): ")
 	var formatDetail *string
 	if formatDetailInput != "" {

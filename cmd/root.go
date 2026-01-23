@@ -9,7 +9,7 @@ var rootCmd = &cobra.Command{
 	Short: "Catalogue your personal music collection",
 }
 
-var ValidFormats = []string{"CD", "Vinyl", "Tape", "Digital"}
+var ValidFormats = []string{"CD", "Vinyl", "Cassette"}
 
 func Execute() error {
 	return rootCmd.Execute()
