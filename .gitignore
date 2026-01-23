@@ -1,0 +1,11 @@
+# Go
+/bin/
+/pkg/
+
+# Editor
+.DS_Store
+.idea/
+.vscode/
+
+# musiccat local data
+.musiccat/
