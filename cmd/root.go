@@ -9,6 +9,8 @@ var rootCmd = &cobra.Command{
 	Short: "Catalogue your personal music collection",
 }
 
+var ValidFormats = []string{"CD", "Vinyl", "Tape", "Digital"}
+
 func Execute() error {
 	return rootCmd.Execute()
 }

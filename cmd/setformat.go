@@ -8,8 +8,6 @@ import (
 	"musiccat/internal/config"
 )
 
-var validFormats = []string{"CD", "Vinyl", "Tape", "Digital"}
-
 var setFormatCmd = &cobra.Command{
 	Use:   "set-format <FORMAT>",
 	Short: "Set the current batch format for additions",
@@ -17,7 +15,7 @@ var setFormatCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		format := strings.Title(strings.ToLower(args[0]))
 		if !isValidFormat(format) {
-			return fmt.Errorf("invalid format: %s. Valid formats: %s", args[0], strings.Join(validFormats, ", "))
+			return fmt.Errorf("invalid format: %s. Valid formats: %s", args[0], strings.Join(ValidFormats, ", "))
 		}
 
 		cfg, err := config.LoadConfig()
@@ -31,7 +29,7 @@ var setFormatCmd = &cobra.Command{
 }
 
 func isValidFormat(format string) bool {
-	for _, f := range validFormats {
+	for _, f := range ValidFormats {
 		if f == format {
 			return true
 		}
