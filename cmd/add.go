@@ -121,6 +121,42 @@ func selectItem[T any](prompt string, items []T) (T, error) {
 	return zero, scanner.Err()
 }
 
+type SelectionItem struct {
+	index int
+	promo bool
+}
+
+func selectMultipleItemsWithPromo(prompt string, items []ReleaseGroup) ([]SelectionItem, error) {
+	scanner := bufio.NewScanner(os.Stdin)
+	fmt.Print(prompt)
+	for scanner.Scan() {
+		input := strings.TrimSpace(scanner.Text())
+		parts := strings.Split(input, ",")
+		var selected []SelectionItem
+		valid := true
+		for _, part := range parts {
+			part = strings.TrimSpace(part)
+			promo := false
+			if strings.HasSuffix(part, "p") {
+				promo = true
+				part = part[:len(part)-1]
+			}
+			num, err := strconv.Atoi(part)
+			if err != nil || num < 1 || num > len(items) {
+				valid = false
+				break
+			}
+			selected = append(selected, SelectionItem{index: num, promo: promo})
+		}
+		if !valid {
+			fmt.Printf("Invalid selection. Enter numbers between 1 and %d, comma-separated, optional 'p' suffix: ", len(items))
+			continue
+		}
+		return selected, nil
+	}
+	return nil, scanner.Err()
+}
+
 func selectMultipleItems[T any](prompt string, items []T) ([]T, error) {
 	scanner := bufio.NewScanner(os.Stdin)
 	fmt.Print(prompt)
@@ -226,25 +262,26 @@ func addFromMusicBrainz(artistName string) error {
 		}
 		fmt.Printf("%d. %s%s%s\n", i+1, rg.Title, yearStr, typeStr)
 	}
-	selectedRGs, err := selectMultipleItems("Select releases (numbers, comma-separated): ", releaseGroups)
+	selectedItems, err := selectMultipleItemsWithPromo("Select releases (numbers, comma-separated, suffix 'p' for promo): ", releaseGroups)
 	if err != nil {
 		return err
 	}
 
 	// Insert each selected release and ownership
-	for _, rg := range selectedRGs {
+	for _, item := range selectedItems {
+		rg := releaseGroups[item.index-1]
 		var releaseYear *int = parseYear(rg.FirstReleaseDate)
 		releaseID, err := db.InsertRelease(database, selectedArtist.Name, rg.Title, releaseYear, &rg.ID)
 		if err != nil {
 			return err
 		}
-		_, err = db.InsertOwnership(database, releaseID, cfg.CurrentFormat, nil, nil, nil, nil, nil, nil)
+		_, err = db.InsertOwnership(database, releaseID, cfg.CurrentFormat, nil, nil, nil, nil, nil, nil, item.promo)
 		if err != nil {
 			return err
 		}
 	}
 
-	fmt.Printf("Added %d releases to collection.\n", len(selectedRGs))
+	fmt.Printf("Added %d releases to collection.\n", len(selectedItems))
 	return nil
 }
 
@@ -279,7 +316,7 @@ func addManual() error {
 	}
 
 	// Insert ownership
-	_, err = db.InsertOwnership(database, id, formatCategory, formatDetail, nil, nil, nil, nil, nil)
+	_, err = db.InsertOwnership(database, id, formatCategory, formatDetail, nil, nil, nil, nil, nil, false)
 	if err != nil {
 		return err
 	}
