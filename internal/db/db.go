@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"os"
 	"path/filepath"
+	"strings"
 
 	_ "modernc.org/sqlite"
 )
@@ -53,7 +54,8 @@ CREATE TABLE IF NOT EXISTS ownership (
     cost REAL,
     source TEXT,
     notes TEXT,
-    discogs_release_id INTEGER
+    discogs_release_id INTEGER,
+    is_promo BOOLEAN DEFAULT FALSE
 );
 `
 
@@ -62,6 +64,11 @@ func BootstrapDB(db *sql.DB) error {
 		return err
 	}
 	if _, err := db.Exec(createOwnershipTable); err != nil {
+		return err
+	}
+	// Migration: add is_promo column if missing
+	_, err := db.Exec("ALTER TABLE ownership ADD COLUMN is_promo BOOLEAN DEFAULT FALSE")
+	if err != nil && !strings.Contains(err.Error(), "duplicate column name") {
 		return err
 	}
 	return nil
@@ -87,8 +94,8 @@ func InsertRelease(db *sql.DB, artist, title string, year *int, mbid *string) (i
 	return result.LastInsertId()
 }
 
-func InsertOwnership(db *sql.DB, releaseID int64, formatCategory string, formatDetail *string, purchaseDate *string, cost *float64, source *string, notes *string, discogsID *int) (int64, error) {
-	query := `INSERT INTO ownership (release_id, format_category, format_detail, purchase_date, cost, source, notes, discogs_release_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+func InsertOwnership(db *sql.DB, releaseID int64, formatCategory string, formatDetail *string, purchaseDate *string, cost *float64, source *string, notes *string, discogsID *int, isPromo bool) (int64, error) {
+	query := `INSERT INTO ownership (release_id, format_category, format_detail, purchase_date, cost, source, notes, discogs_release_id, is_promo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	args := []interface{}{releaseID, formatCategory}
 	if formatDetail != nil {
 		args = append(args, *formatDetail)
@@ -120,6 +127,7 @@ func InsertOwnership(db *sql.DB, releaseID int64, formatCategory string, formatD
 	} else {
 		args = append(args, nil)
 	}
+	args = append(args, isPromo)
 	result, err := db.Exec(query, args...)
 	if err != nil {
 		return 0, err

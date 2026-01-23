@@ -91,8 +91,8 @@ func insertRelease(t *testing.T, db *sql.DB, artist, title string, year *int, mb
 	return result.LastInsertId()
 }
 
-func insertOwnership(t *testing.T, db *sql.DB, releaseID int64, formatCategory string, formatDetail *string, purchaseDate *string, cost *float64, source *string, notes *string, discogsID *int) (int64, error) {
-	query := `INSERT INTO ownership (release_id, format_category, format_detail, purchase_date, cost, source, notes, discogs_release_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+func insertOwnership(t *testing.T, db *sql.DB, releaseID int64, formatCategory string, formatDetail *string, purchaseDate *string, cost *float64, source *string, notes *string, discogsID *int, isPromo bool) (int64, error) {
+	query := `INSERT INTO ownership (release_id, format_category, format_detail, purchase_date, cost, source, notes, discogs_release_id, is_promo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	var args []interface{}
 	args = append(args, releaseID, formatCategory)
 	if formatDetail != nil {
@@ -125,6 +125,7 @@ func insertOwnership(t *testing.T, db *sql.DB, releaseID int64, formatCategory s
 	} else {
 		args = append(args, nil)
 	}
+	args = append(args, isPromo)
 	result, err := db.Exec(query, args...)
 	if err != nil {
 		return 0, err
@@ -185,10 +186,50 @@ func TestInsertOwnership(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := insertOwnership(t, db, tt.releaseID, tt.formatCategory, nil, nil, nil, nil, nil, nil)
+			_, err := insertOwnership(t, db, tt.releaseID, tt.formatCategory, nil, nil, nil, nil, nil, nil, false)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("insertOwnership() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestInsertOwnershipPromo(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping DB test in sandbox")
+	}
+	db := openTestDB(t)
+	defer db.Close()
+	BootstrapDB(db)
+	// Insert a release first
+	releaseID, err := insertRelease(t, db, "Artist", "Title", ptr(2020), ptr("mbid"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Insert ownership with promo false
+	id1, err := insertOwnership(t, db, releaseID, "CD", nil, nil, nil, nil, nil, nil, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Insert with promo true
+	id2, err := insertOwnership(t, db, releaseID, "Vinyl", nil, nil, nil, nil, nil, nil, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Check DB
+	var promo1, promo2 bool
+	err = db.QueryRow("SELECT is_promo FROM ownership WHERE id = ?", id1).Scan(&promo1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = db.QueryRow("SELECT is_promo FROM ownership WHERE id = ?", id2).Scan(&promo2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if promo1 != false {
+		t.Errorf("expected promo false, got %v", promo1)
+	}
+	if promo2 != true {
+		t.Errorf("expected promo true, got %v", promo2)
 	}
 }
