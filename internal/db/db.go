@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 const dbFile = "musiccat.db"
@@ -29,7 +29,7 @@ func OpenDB() (*sql.DB, error) {
 		return nil, err
 	}
 
-	return sql.Open("sqlite3", path)
+	return sql.Open("sqlite", path)
 }
 
 const createReleasesTable = `
