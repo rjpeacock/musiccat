@@ -173,6 +173,80 @@ For releases not in MusicBrainz:
 - `all` undoes the most recent batch
 - Optional confirmation when multiple rows deleted
 
+---
+
+## Database Testing
+
+### Use Generic Database Interfaces
+
+- Write tests using `database/sql` interfaces only
+- Don't depend on `go-sqlite3`-specific APIs
+- Keep all logic generic
+
+### Pure-Go Driver for Tests
+
+Use a pure-Go driver for tests if sandboxed / cgo not available:
+
+- Suggest using `modernc.org/sqlite` in test files
+- Example: in `_test.go` files, import `_ "modernc.org/sqlite"` instead of `go-sqlite3`
+- This lets tests run anywhere, including agent environments
+
+### Use In-Memory Databases
+
+Use temporary in-memory databases:
+
+```go
+db, err := sql.Open("sqlite", ":memory:")
+```
+
+**Benefits:**
+
+- No file writes
+- No state persistence needed
+- Works for both drivers
+
+### Test Behavior, Not Implementation
+
+Test the important behavior, not the C implementation:
+
+- Verify `releases` and `ownership` tables are created
+- Verify insert/read/update/delete works
+- Check constraints (e.g., unique MusicBrainz IDs)
+
+### Skip Tests in Sandbox Environments
+
+Skip DB tests if compilation fails:
+
+- Wrap tests in `t.Skip()` if the driver cannot compile
+
+```go
+func TestDB(t *testing.T) {
+    if testing.Short() {
+        t.Skip("skipping DB test in sandbox")
+    }
+}
+```
+
+This prevents the agent from blocking due to environment limitations.
+
+### Use Table-Driven Tests
+
+Use table-driven tests for common error scenarios:
+
+- Duplicate MusicBrainz IDs
+- Invalid formats
+- Missing required fields
+
+### Commit Discipline
+
+Commit the tests separately:
+
+- One commit for DB schema and helpers
+- One commit for DB tests
+- Make them small, reviewable, buildable
+
+---
+
 ## Error Handling
 
 - Do not silently swallow errors
