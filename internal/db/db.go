@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS releases (
 const createOwnershipTable = `
 CREATE TABLE IF NOT EXISTS ownership (
     id INTEGER PRIMARY KEY,
-    release_id INTEGER NOT NULL,
+    release_id INTEGER NOT NULL REFERENCES releases(id),
     format_category TEXT NOT NULL,
     format_detail TEXT,
     purchase_date TEXT,
