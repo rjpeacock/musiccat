@@ -1,6 +1,9 @@
 # Go
 /bin/
 /pkg/
+musiccat
+musiccat.exe
+*.exe
 
 # Editor
 .DS_Store
