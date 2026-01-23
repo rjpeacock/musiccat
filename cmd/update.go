@@ -28,6 +28,13 @@ var updateCmd = &cobra.Command{
 		promo, _ := cmd.Flags().GetBool("promo")
 		notes, _ := cmd.Flags().GetString("notes")
 
+		// If no flags provided, default to manual mode
+		hasFlags := cmd.Flags().Changed("cost") || cmd.Flags().Changed("purchase-date") ||
+			cmd.Flags().Changed("source") || cmd.Flags().Changed("promo") || cmd.Flags().Changed("notes")
+		if !hasFlags && !manual {
+			manual = true
+		}
+
 		// Open DB
 		database, err := db.OpenDB()
 		if err != nil {
