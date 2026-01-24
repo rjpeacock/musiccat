@@ -273,6 +273,65 @@ No external API calls.
 
 ---
 
+## Format Conventions & Ownership Notes
+
+### Principles
+
+- `format_category` is **hard-ish**: CD, Vinyl, Tape, Digital.
+- `format_detail` is **semi-formal, convention-based**, filterable, and human-readable.
+- Physical or content variants are recorded via `ownership` rows.
+- Notes store additional distinguishing information, e.g., region, catalog number, special edition.
+
+---
+
+### Recommended `format_detail` by Category
+
+#### CD
+
+- `Album`
+- `Single`
+- `EP`
+- `Maxi`
+
+#### Vinyl
+
+- `LP`
+- `12"`
+- `10"`
+- `7"`
+
+#### Tape
+
+- `Album`
+- `Single`
+
+---
+
+### Multi-Variant Ownership
+
+- Multiple ownership rows may exist for the same release.
+- Each row represents a **distinct physical or digital copy**.
+- Variants are distinguished via:
+  - `format_detail`
+  - `notes`
+- Example:
+
+| release_id | format_category | format_detail | notes          |
+|------------|----------------|---------------|----------------|
+| 123        | CD             | Single        | UK CD1         |
+| 123        | CD             | Single        | UK CD2         |
+| 123        | CD             | Single        | JP bonus track |
+
+- This allows tracking of multi-pack singles or promotional variants without adding new tables.
+
+---
+
+### CLI Guidance
+
+- When adding releases, allow **multiple ownership rows** for the same release.
+- Suggested `format_detail` values may be displayed, but **free text is always allowed**.
+- Filtering, listing, and stats rely on consistent use of `format_category` + `format_detail`.
+
 ## Database Testing
 
 ### Use Generic Database Interfaces
