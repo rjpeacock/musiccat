@@ -113,7 +113,7 @@ type SelectionItem struct {
 	notes        string
 }
 
-func selectReleasesWithPagination(releaseGroups []ReleaseGroup, pageSize int, formatCategory string) ([]SelectionItem, error) {
+func selectReleasesWithPagination(releaseGroups []ReleaseGroup, pageSize int, formatCategory string, albumOnly, singleOnly bool, afterYear, beforeYear int, titleFilter string) ([]SelectionItem, error) {
 	const moreNumber = 99
 	currentPage := 0
 	for {
@@ -128,7 +128,33 @@ func selectReleasesWithPagination(releaseGroups []ReleaseGroup, pageSize int, fo
 		totalPages := (len(releaseGroups) + pageSize - 1) / pageSize
 		isLastPage := currentPage+1 >= totalPages
 
-		fmt.Printf("Displaying %d–%d of %d releases:\n", start+1, end, len(releaseGroups))
+		// Show applied filters for clarity
+		var filterInfo []string
+		if albumOnly {
+			filterInfo = append(filterInfo, "albums only")
+		}
+		if singleOnly {
+			filterInfo = append(filterInfo, "singles only")
+		}
+		if afterYear > 0 {
+			filterInfo = append(filterInfo, fmt.Sprintf("after %d", afterYear))
+		}
+		if beforeYear > 0 {
+			if afterYear > 0 {
+				filterInfo = append(filterInfo, fmt.Sprintf("%d-%d", afterYear, beforeYear-1))
+			} else {
+				filterInfo = append(filterInfo, fmt.Sprintf("before %d", beforeYear-1))
+			}
+		}
+		if titleFilter != "" {
+			filterInfo = append(filterInfo, fmt.Sprintf("title '%s'", titleFilter))
+		}
+
+		if len(filterInfo) > 0 {
+			fmt.Printf("Displaying %d–%d of %d releases (filtered: %s):\n", start+1, end, len(releaseGroups), strings.Join(filterInfo, ", "))
+		} else {
+			fmt.Printf("Displaying %d–%d of %d releases:\n", start+1, end, len(releaseGroups))
+		}
 
 		for i := start; i < end; i++ {
 			rg := releaseGroups[i]

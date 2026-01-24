@@ -124,7 +124,7 @@ func addFromMusicBrainz(artistName string, pageSize int, sortFields string, desc
 	sortFieldsSlice := parseSortFields(sortFields)
 	sortedGroups := SortReleaseGroups(releaseGroups, sortFieldsSlice, desc)
 
-	selectedItems, err := selectReleasesWithPagination(sortedGroups, pageSize, cfg.CurrentFormat)
+	selectedItems, err := selectReleasesWithPagination(sortedGroups, pageSize, cfg.CurrentFormat, albumOnly, singleOnly, afterYear, beforeYear, titleFilter)
 	if err != nil {
 		return err
 	}
