@@ -158,7 +158,7 @@ func selectReleasesWithPagination(releaseGroups []ReleaseGroup, pageSize int, fo
 
 		for i := start; i < end; i++ {
 			rg := releaseGroups[i]
-			num := i + 1 // Display number matches array index + 1
+			num := i - start + 1 // Display number relative to current page (1-based)
 			year := parseYear(rg.FirstReleaseDate)
 			yearStr := ""
 			if year != nil {
@@ -192,8 +192,8 @@ func selectReleasesWithPagination(releaseGroups []ReleaseGroup, pageSize int, fo
 			currentPage++
 			continue
 		}
-		// Parse selections
-		selectedItems, err := parseSelections(input, releaseGroups)
+		// Parse selections with page offset
+		selectedItems, err := parseSelections(input, releaseGroups, start)
 		if err != nil {
 			fmt.Println("Invalid input:", err)
 			continue
@@ -203,7 +203,7 @@ func selectReleasesWithPagination(releaseGroups []ReleaseGroup, pageSize int, fo
 	return nil, fmt.Errorf("no releases selected")
 }
 
-func parseSelections(input string, releaseGroups []ReleaseGroup) ([]SelectionItem, error) {
+func parseSelections(input string, releaseGroups []ReleaseGroup, pageOffset int) ([]SelectionItem, error) {
 	parts := strings.Split(input, ",")
 	var selected []SelectionItem
 
@@ -235,7 +235,13 @@ func parseSelections(input string, releaseGroups []ReleaseGroup) ([]SelectionIte
 			return nil, fmt.Errorf("invalid selection %s", part)
 		}
 
-		selected = append(selected, SelectionItem{releaseGroup: releaseGroups[num-1], promo: promo, pirate: false, quantity: quantity})
+		// Calculate actual array index with page offset
+		actualIndex := pageOffset + (num - 1)
+		if actualIndex >= len(releaseGroups) {
+			return nil, fmt.Errorf("invalid selection %s", part)
+		}
+
+		selected = append(selected, SelectionItem{releaseGroup: releaseGroups[actualIndex], promo: promo, pirate: false, quantity: quantity})
 	}
 
 	// Ask for variant notes for each selected release
