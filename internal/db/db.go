@@ -81,11 +81,28 @@ func BootstrapDB(db *sql.DB) error {
 }
 
 func InsertRelease(db *sql.DB, artist, title string, year *int, mbid *string) (int64, error) {
-	query := `INSERT OR IGNORE INTO releases (artist, title, year, musicbrainz_release_group_id) VALUES (?, ?, ?, ?)`
+	// First, check if release already exists
+	if mbid != nil {
+		var existingID int64
+		err := db.QueryRow("SELECT id FROM releases WHERE musicbrainz_release_group_id = ?", mbid).Scan(&existingID)
+		if err == nil {
+			// Release already exists, return its ID
+			return existingID, nil
+		}
+		if err != sql.ErrNoRows {
+			// Some other error occurred
+			return 0, err
+		}
+		// sql.ErrNoRows means release doesn't exist, proceed with insert
+	}
+	
+	// Insert the new release
+	query := `INSERT INTO releases (artist, title, year, musicbrainz_release_group_id) VALUES (?, ?, ?, ?)`
 	result, err := db.Exec(query, artist, title, year, mbid)
 	if err != nil {
 		return 0, err
 	}
+	
 	return result.LastInsertId()
 }
 
