@@ -111,24 +111,18 @@ func addFromMusicBrainz(artistName string, pageSize int, sortFields string, desc
 		return err
 	}
 
-	// Search release groups
-	releaseGroups, err := searchReleaseGroups(selectedArtist.ID)
+	// Search release groups with filters applied via API query
+	releaseGroups, err := searchReleaseGroupsWithFilters(selectedArtist.ID, albumOnly, singleOnly, afterYear, beforeYear, titleFilter)
 	if err != nil {
 		return err
 	}
 	if len(releaseGroups) == 0 {
-		return fmt.Errorf("no releases found for artist '%s'", selectedArtist.Name)
-	}
-
-	// Apply filters AFTER artist selection
-	filteredGroups := applyReleaseGroupFilters(releaseGroups, albumOnly, singleOnly, afterYear, beforeYear, titleFilter)
-	if len(filteredGroups) == 0 {
-		return fmt.Errorf("no releases found matching the specified filters")
+		return fmt.Errorf("no releases found for artist '%s' with specified filters", selectedArtist.Name)
 	}
 
 	// Apply sorting
 	sortFieldsSlice := parseSortFields(sortFields)
-	sortedGroups := SortReleaseGroups(filteredGroups, sortFieldsSlice, desc)
+	sortedGroups := SortReleaseGroups(releaseGroups, sortFieldsSlice, desc)
 
 	selectedItems, err := selectReleasesWithPagination(sortedGroups, pageSize, cfg.CurrentFormat)
 	if err != nil {
@@ -214,19 +208,6 @@ func addManual() error {
 	return nil
 }
 
-// applyReleaseGroupFilters applies filters to release groups after artist selection
-func applyReleaseGroupFilters(releaseGroups []ReleaseGroup, albumOnly, singleOnly bool, afterYear, beforeYear int, titleFilter string) []ReleaseGroup {
-	var afterYearPtr, beforeYearPtr *int
-	if afterYear != 0 {
-		afterYearPtr = &afterYear
-	}
-	if beforeYear != 0 {
-		beforeYearPtr = &beforeYear
-	}
-
-	return FilterReleaseGroups(releaseGroups, albumOnly, singleOnly, afterYearPtr, beforeYearPtr, titleFilter)
-}
-
 func searchArtists(query string) ([]Artist, error) {
 	encodedQuery := url.QueryEscape(query)
 	reqURL := fmt.Sprintf("https://musicbrainz.org/ws/2/artist?query=artist:%s&fmt=json", encodedQuery)
@@ -244,8 +225,53 @@ func searchArtists(query string) ([]Artist, error) {
 }
 
 func searchReleaseGroups(artistID string) ([]ReleaseGroup, error) {
+	// Simple artist search without any filters
+	query := fmt.Sprintf("artist:%s", artistID)
+	url := fmt.Sprintf("https://musicbrainz.org/ws/2/release-group?query=%s&limit=100&fmt=json", url.QueryEscape(query))
+	resp, err := makeRequest(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var result ReleaseGroupSearchResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+	return result.ReleaseGroups, nil
+}
+
+func searchReleaseGroupsWithFilters(artistID string, albumOnly, singleOnly bool, afterYear, beforeYear int, titleFilter string) ([]ReleaseGroup, error) {
+	// Build query with filters
+	query := fmt.Sprintf("artist:%s", artistID)
+
+	// Add type filters
+	if albumOnly && !singleOnly {
+		query += " AND type:album"
+	} else if singleOnly && !albumOnly {
+		query += " AND type:single"
+	}
+
+	// Add year filters
+	if afterYear > 0 {
+		query += fmt.Sprintf(" AND date:[%d-01-01 TO]", afterYear)
+	}
+	if beforeYear > 0 {
+		if afterYear > 0 {
+			query = strings.TrimSuffix(query, " TO]")
+			query += fmt.Sprintf(" %d-12-31]", beforeYear-1)
+		} else {
+			query += fmt.Sprintf(" AND date:[TO %d-12-31]", beforeYear-1)
+		}
+	}
+
+	// Add title filter
+	if titleFilter != "" {
+		query += fmt.Sprintf(" AND release:%s", titleFilter)
+	}
+
 	// Request up to 100 release groups (MusicBrainz max)
-	url := fmt.Sprintf("https://musicbrainz.org/ws/2/release-group?artist=%s&limit=100&fmt=json", artistID)
+	url := fmt.Sprintf("https://musicbrainz.org/ws/2/release-group?query=%s&limit=100&fmt=json", url.QueryEscape(query))
 	resp, err := makeRequest(url)
 	if err != nil {
 		return nil, err
