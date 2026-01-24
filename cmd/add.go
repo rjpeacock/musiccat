@@ -53,11 +53,19 @@ var addCmd = &cobra.Command{
 		}
 		artistName := strings.Join(args, " ")
 		pageSize, _ := cmd.Flags().GetInt("page-size")
-		return addFromMusicBrainz(artistName, pageSize)
+		sortFields, _ := cmd.Flags().GetString("sort")
+		desc, _ := cmd.Flags().GetBool("desc")
+		albumOnly, _ := cmd.Flags().GetBool("album-only")
+		singleOnly, _ := cmd.Flags().GetBool("single-only")
+		afterYear, _ := cmd.Flags().GetInt("after-year")
+		beforeYear, _ := cmd.Flags().GetInt("before-year")
+		titleFilter, _ := cmd.Flags().GetString("title")
+
+		return addFromMusicBrainz(artistName, pageSize, sortFields, desc, albumOnly, singleOnly, afterYear, beforeYear, titleFilter)
 	},
 }
 
-func addFromMusicBrainz(artistName string, pageSize int) error {
+func addFromMusicBrainz(artistName string, pageSize int, sortFields string, desc bool, albumOnly, singleOnly bool, afterYear, beforeYear int, titleFilter string) error {
 	// Load config for current format
 	cfg, err := config.LoadConfig()
 	if err != nil {
@@ -111,7 +119,25 @@ func addFromMusicBrainz(artistName string, pageSize int) error {
 		return fmt.Errorf("no releases found for artist '%s'", selectedArtist.Name)
 	}
 
-	selectedItems, err := selectReleasesWithPagination(releaseGroups, pageSize)
+	// Apply filters
+	var afterYearPtr, beforeYearPtr *int
+	if afterYear != 0 {
+		afterYearPtr = &afterYear
+	}
+	if beforeYear != 0 {
+		beforeYearPtr = &beforeYear
+	}
+
+	filteredGroups := FilterReleaseGroups(releaseGroups, albumOnly, singleOnly, afterYearPtr, beforeYearPtr, titleFilter)
+	if len(filteredGroups) == 0 {
+		return fmt.Errorf("no releases found matching the specified filters")
+	}
+
+	// Apply sorting
+	sortFieldsSlice := parseSortFields(sortFields)
+	sortedGroups := SortReleaseGroups(filteredGroups, sortFieldsSlice, desc)
+
+	selectedItems, err := selectReleasesWithPagination(sortedGroups, pageSize)
 	if err != nil {
 		return err
 	}
