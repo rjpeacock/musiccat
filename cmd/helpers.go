@@ -113,7 +113,7 @@ type SelectionItem struct {
 	notes        string
 }
 
-func selectReleasesWithPagination(releaseGroups []ReleaseGroup, pageSize int, formatCategory string) ([]SelectionItem, error) {
+func selectReleasesWithPagination(releaseGroups []ReleaseGroup, pageSize int, formatCategory string, albumOnly, singleOnly bool, afterYear, beforeYear int, titleFilter string) ([]SelectionItem, error) {
 	const moreNumber = 99
 	currentPage := 0
 	for {
@@ -127,7 +127,35 @@ func selectReleasesWithPagination(releaseGroups []ReleaseGroup, pageSize int, fo
 		}
 		totalPages := (len(releaseGroups) + pageSize - 1) / pageSize
 		isLastPage := currentPage+1 >= totalPages
-		fmt.Printf("Displaying %d–%d of %d releases:\n", start+1, end, len(releaseGroups))
+		
+		// Show applied filters for clarity
+		var filterInfo []string
+		if albumOnly {
+			filterInfo = append(filterInfo, "albums only")
+		}
+		if singleOnly {
+			filterInfo = append(filterInfo, "singles only")
+		}
+		if afterYear > 0 {
+			filterInfo = append(filterInfo, fmt.Sprintf("after %d", afterYear))
+		}
+		if beforeYear > 0 {
+			if afterYear > 0 {
+				filterInfo = append(filterInfo, fmt.Sprintf("%d-%d", afterYear, beforeYear-1))
+			} else {
+				filterInfo = append(filterInfo, fmt.Sprintf("before %d", beforeYear-1))
+			}
+		}
+		if titleFilter != "" {
+			filterInfo = append(filterInfo, fmt.Sprintf("title '%s'", titleFilter))
+		}
+		
+		if len(filterInfo) > 0 {
+			fmt.Printf("Displaying %d–%d of %d releases (filtered: %s):\n", start+1, end, len(releaseGroups), strings.Join(filterInfo, ", "))
+		} else {
+			fmt.Printf("Displaying %d–%d of %d releases:\n", start+1, end, len(releaseGroups))
+		}
+		
 		for i := start; i < end; i++ {
 			rg := releaseGroups[i]
 			num := i + 1 // Display number matches array index + 1
@@ -141,10 +169,29 @@ func selectReleasesWithPagination(releaseGroups []ReleaseGroup, pageSize int, fo
 				typeStr = " [" + rg.PrimaryType + "]"
 			}
 			// Add inferred format detail in brackets
-			formatDetailStr := ""
 			inferredDetail := inferFormatDetail(rg.PrimaryType, formatCategory)
 			if inferredDetail != "" {
-				formatDetailStr = " [" + inferredDetail + "]"
+				fmt.Printf("%d. %s%s%s [%s]\n", num, rg.Title, yearStr, typeStr, inferredDetail)
+			} else {
+				fmt.Printf("%d. %s%s%s\n", num, rg.Title, yearStr, typeStr)
+			}
+		}
+			rg := releaseGroups[i]
+			num := i + 1 // Display number matches array index + 1
+			year := parseYear(rg.FirstReleaseDate)
+			yearStr := ""
+			if year != nil {
+				yearStr = fmt.Sprintf(" (%d)", *year)
+			}
+			if rg.PrimaryType != "" {
+				typeStr = " [" + rg.PrimaryType + "]"
+			}
+			// Add inferred format detail in brackets
+			inferredDetail := inferFormatDetail(rg.PrimaryType, formatCategory)
+			if inferredDetail != "" {
+				fmt.Printf("%d. %s%s%s [%s]\n", num, rg.Title, yearStr, typeStr, inferredDetail)
+			} else {
+				fmt.Printf("%d. %s%s%s\n", num, rg.Title, yearStr, typeStr)
 			}
 			fmt.Printf("%d. %s%s%s%s\n", num, rg.Title, yearStr, typeStr, formatDetailStr)
 		}
@@ -171,23 +218,57 @@ func selectReleasesWithPagination(releaseGroups []ReleaseGroup, pageSize int, fo
 		}
 		return selectedItems, nil
 	}
+	}
+				formatDetailStr = " [" + inferredDetail + "]"
+			}
+			fmt.Printf("%d. %s%s%s%s\n", num, rg.Title, yearStr, typeStr, formatDetailStr)
+		}
+		var prompt string
+		if isLastPage {
+			prompt = "Select releases (numbers, comma-separated, suffix 'p' for promo, suffix '(n)' for quantity): "
+		} else {
+			prompt = fmt.Sprintf("Select releases (numbers, comma-separated, suffix 'p' for promo, suffix '(n)' for quantity, %d for more): ", moreNumber)
+		}
+		input := promptString(prompt)
+		if input == strconv.Itoa(moreNumber) {
+			if isLastPage {
+				fmt.Println("Already on last page.")
+				continue
+			}
+			currentPage++
+			continue
+		}
+		// Parse selections
+		selectedItems, err := parseSelections(input, releaseGroups)
+		if err != nil {
+			fmt.Println("Invalid input:", err)
+			continue
+		}
+		}
+		return selectedItems, nil
+	}
 	return nil, fmt.Errorf("no releases selected")
 }
 
 func parseSelections(input string, releaseGroups []ReleaseGroup) ([]SelectionItem, error) {
 	parts := strings.Split(input, ",")
 	var selected []SelectionItem
+	valid := true
 	for _, part := range parts {
 		part = strings.TrimSpace(part)
-		promo := false
-		pirate := false
-		if strings.HasSuffix(part, "p") {
-			promo = true
-			part = part[:len(part)-1]
-		} else if strings.HasSuffix(part, "pirate") {
-			pirate = true
-			part = part[:len(part)-6] // remove "pirate" suffix
+		num, err := strconv.Atoi(part)
+		if err != nil || num < 1 || num > len(releaseGroups) {
+			valid = false
+			break
 		}
+		selected = append(selected, SelectionItem{releaseGroup: releaseGroups[num-1], promo: promo, pirate: pirate, quantity: quantity, notes: notes})
+	}
+	if !valid {
+		return nil, fmt.Errorf("invalid selection %s", part)
+	}
+
+	return selected, nil
+}
 
 		// Handle quantity with optional parentheses: "1(2)" or just "1"
 		quantity := 1
