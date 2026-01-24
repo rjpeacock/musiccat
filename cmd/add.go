@@ -291,5 +291,12 @@ func makeRequest(url string) (*http.Response, error) {
 func init() {
 	addCmd.Flags().Bool("manual", false, "Manually enter release details")
 	addCmd.Flags().Int("page-size", 50, "Number of releases per page")
+	addCmd.Flags().String("sort", "", "Sort by field(s): type, year, title (comma-separated)")
+	addCmd.Flags().Bool("desc", false, "Reverse sort order")
+	addCmd.Flags().Bool("album-only", false, "Show only albums")
+	addCmd.Flags().Bool("single-only", false, "Show only singles")
+	addCmd.Flags().Int("after-year", 0, "Show releases after this year")
+	addCmd.Flags().Int("before-year", 0, "Show releases before this year")
+	addCmd.Flags().String("title", "", "Filter by release title (partial match)")
 	rootCmd.AddCommand(addCmd)
 }
