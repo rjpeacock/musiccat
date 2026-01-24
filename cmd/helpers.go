@@ -110,7 +110,9 @@ func selectReleasesWithPagination(releaseGroups []ReleaseGroup, pageSize int) ([
 		if start >= len(releaseGroups) {
 			break
 		}
-		fmt.Printf("Page %d of %d:\n", currentPage+1, (len(releaseGroups)+pageSize-1)/pageSize)
+		totalPages := (len(releaseGroups) + pageSize - 1) / pageSize
+		isLastPage := currentPage+1 >= totalPages
+		fmt.Printf("Page %d of %d:\n", currentPage+1, totalPages)
 		for i := start; i < end; i++ {
 			rg := releaseGroups[i]
 			num := i + 1
@@ -125,9 +127,18 @@ func selectReleasesWithPagination(releaseGroups []ReleaseGroup, pageSize int) ([
 			}
 			fmt.Printf("%d. %s%s%s\n", num, rg.Title, yearStr, typeStr)
 		}
-		prompt := fmt.Sprintf("Select releases (numbers, comma-separated, suffix 'p' for promo, %d for more): ", moreNumber)
+		var prompt string
+		if isLastPage {
+			prompt = "Select releases (numbers, comma-separated, suffix 'p' for promo): "
+		} else {
+			prompt = fmt.Sprintf("Select releases (numbers, comma-separated, suffix 'p' for promo, %d for more): ", moreNumber)
+		}
 		input := promptString(prompt)
 		if input == strconv.Itoa(moreNumber) {
+			if isLastPage {
+				fmt.Println("Already on last page.")
+				continue
+			}
 			currentPage++
 			continue
 		}

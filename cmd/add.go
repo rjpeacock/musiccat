@@ -191,7 +191,8 @@ func searchArtists(query string) ([]Artist, error) {
 }
 
 func searchReleaseGroups(artistID string) ([]ReleaseGroup, error) {
-	url := fmt.Sprintf("https://musicbrainz.org/ws/2/release-group?artist=%s&fmt=json", artistID)
+	// Request up to 100 release groups (MusicBrainz max)
+	url := fmt.Sprintf("https://musicbrainz.org/ws/2/release-group?artist=%s&limit=100&fmt=json", artistID)
 	resp, err := makeRequest(url)
 	if err != nil {
 		return nil, err
