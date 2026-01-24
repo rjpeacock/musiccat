@@ -29,10 +29,11 @@ Non-editable fields: artist, title, year, format, MusicBrainz ID.`,
 		source, _ := cmd.Flags().GetString("source")
 		promo, _ := cmd.Flags().GetBool("promo")
 		notes, _ := cmd.Flags().GetString("notes")
+		formatDetail, _ := cmd.Flags().GetString("format-detail")
 
 		// Check if any flags were provided
 		hasFlags := cmd.Flags().Changed("cost") || cmd.Flags().Changed("purchase-date") ||
-			cmd.Flags().Changed("source") || cmd.Flags().Changed("promo") || cmd.Flags().Changed("notes")
+			cmd.Flags().Changed("source") || cmd.Flags().Changed("promo") || cmd.Flags().Changed("notes") || cmd.Flags().Changed("format-detail")
 		if !hasFlags {
 			return fmt.Errorf("no update flags provided. Use --cost, --purchase-date, --source, --promo, or --notes")
 		}
@@ -81,6 +82,10 @@ Non-editable fields: artist, title, year, format, MusicBrainz ID.`,
 			sets = append(sets, " notes = ?")
 			updateArgs = append(updateArgs, notes)
 		}
+		if cmd.Flags().Changed("format-detail") {
+			sets = append(sets, " format_detail = ?")
+			updateArgs = append(updateArgs, formatDetail)
+		}
 
 		if len(sets) > 0 {
 			updateOwnership += " " + strings.Join(sets, ", ") + " WHERE id = ?"
@@ -102,5 +107,6 @@ func init() {
 	updateCmd.Flags().String("source", "", "Update source (use empty string to clear)")
 	updateCmd.Flags().Bool("promo", false, "Update promo status")
 	updateCmd.Flags().String("notes", "", "Update notes (use empty string to clear)")
+	updateCmd.Flags().String("format-detail", "", "Update format detail (use empty string to clear)")
 	rootCmd.AddCommand(updateCmd)
 }
