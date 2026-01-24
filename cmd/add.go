@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -170,8 +171,9 @@ func addManual() error {
 }
 
 func searchArtists(query string) ([]Artist, error) {
-	url := fmt.Sprintf("https://musicbrainz.org/ws/2/artist?query=artist:%s&fmt=json", query)
-	resp, err := makeRequest(url)
+	encodedQuery := url.QueryEscape(query)
+	reqURL := fmt.Sprintf("https://musicbrainz.org/ws/2/artist?query=artist:%s&fmt=json", encodedQuery)
+	resp, err := makeRequest(reqURL)
 	if err != nil {
 		return nil, err
 	}
