@@ -125,7 +125,7 @@ func selectReleasesWithPagination(releaseGroups []ReleaseGroup, pageSize int) ([
 		}
 		totalPages := (len(releaseGroups) + pageSize - 1) / pageSize
 		isLastPage := currentPage+1 >= totalPages
-		fmt.Printf("Page %d of %d:\n", currentPage+1, totalPages)
+		fmt.Printf("Displaying %d–%d of %d releases:\n", start+1, end, len(releaseGroups))
 		for i := start; i < end; i++ {
 			rg := releaseGroups[i]
 			num := i + 1
