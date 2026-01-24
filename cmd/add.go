@@ -1,15 +1,19 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
-	"github.com/spf13/cobra"
 	"musiccat/internal/config"
 	"musiccat/internal/db"
+
+	"github.com/spf13/cobra"
 )
 
 type ArtistSearchResponse struct {
@@ -44,10 +48,10 @@ var addCmd = &cobra.Command{
 			}
 			return addManual()
 		}
-		if len(args) != 1 {
+		if len(args) == 0 {
 			return fmt.Errorf("requires artist name argument")
 		}
-		artistName := args[0]
+		artistName := strings.Join(args, " ")
 		pageSize, _ := cmd.Flags().GetInt("page-size")
 		return addFromMusicBrainz(artistName, pageSize)
 	},
@@ -201,22 +205,75 @@ func searchReleaseGroups(artistID string) ([]ReleaseGroup, error) {
 	return result.ReleaseGroups, nil
 }
 
+// createMusicBrainzClient creates an HTTP client configured for IPv4-only connections
+func createMusicBrainzClient() *http.Client {
+	dialer := &net.Dialer{
+		Timeout:   30 * time.Second,
+		KeepAlive: 30 * time.Second,
+	}
+
+	transport := &http.Transport{
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			// Force IPv4 by replacing "tcp" with "tcp4"
+			return dialer.DialContext(ctx, "tcp4", addr)
+		},
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          10,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
+
+	return &http.Client{
+		Transport: transport,
+		Timeout:   30 * time.Second,
+	}
+}
+
 func makeRequest(url string) (*http.Response, error) {
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, err
+	const maxRetries = 3
+	var lastErr error
+
+	client := createMusicBrainzClient()
+
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("User-Agent", "musiccat/0.1 (robertjamespeacock@gmail.com)")
+
+		resp, err := client.Do(req)
+		if err != nil {
+			lastErr = err
+			if attempt < maxRetries {
+				// Exponential backoff: 1s, 2s
+				waitTime := time.Duration(attempt) * time.Second
+				fmt.Printf("Request failed (attempt %d/%d), retrying in %v...\n", attempt, maxRetries, waitTime)
+				time.Sleep(waitTime)
+				continue
+			}
+			return nil, fmt.Errorf("request failed after %d attempts: %w", maxRetries, err)
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			resp.Body.Close()
+			lastErr = fmt.Errorf("API error: %s", resp.Status)
+			if attempt < maxRetries {
+				waitTime := time.Duration(attempt) * time.Second
+				fmt.Printf("API returned %s (attempt %d/%d), retrying in %v...\n", resp.Status, attempt, maxRetries, waitTime)
+				time.Sleep(waitTime)
+				continue
+			}
+			return nil, lastErr
+		}
+
+		// Success - apply rate limiting before returning
+		time.Sleep(1 * time.Second)
+		return resp, nil
 	}
-	req.Header.Set("User-Agent", "musiccat/0.1.0 (robertjamespeacock@gmail.com)")
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("API error: %s", resp.Status)
-	}
-	time.Sleep(1 * time.Second) // Rate limit
-	return resp, nil
+
+	return nil, lastErr
 }
 
 func init() {
