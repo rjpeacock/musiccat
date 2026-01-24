@@ -34,7 +34,7 @@ var listCmd = &cobra.Command{
 		}
 
 		// Query - show individual ownership entries with IDs
-		query := `SELECT o.id, r.artist, r.title, r.year, o.format_category, o.format_detail, o.is_promo, o.notes
+		query := `SELECT o.id, r.artist, r.title, r.year, o.format_category, o.format_detail, o.is_promo, o.is_pirate, o.notes
 			FROM ownership o
 			JOIN releases r ON o.release_id = r.id`
 		var queryArgs []interface{}
@@ -105,19 +105,19 @@ var listCmd = &cobra.Command{
 		}
 		defer rows.Close()
 
-		fmt.Printf("%-3s %-20s %-30s %-6s %-10s %-10s %-5s %-20s\n", "ID", "Artist", "Title", "Year", "Format", "Detail", "Promo", "Notes")
-		fmt.Println(strings.Repeat("-", 110))
+		fmt.Printf("%-3s %-20s %-30s %-6s %-10s %-10s %-5s %-5s %-30s\n", "ID", "Artist", "Title", "Year", "Format", "Detail", "Promo", "Pirate", "Notes")
+		fmt.Println(strings.Repeat("-", 125))
 
 		for rows.Next() {
 			var id int
 			var artist, title, formatCategory string
 			var year *int
 			var formatDetail, notes *string
-			var isPromo bool
+			var isPromo, isPirate bool
 			var yearNull sql.NullInt32
 			var formatDetailNull, notesNull sql.NullString
 
-			err := rows.Scan(&id, &artist, &title, &yearNull, &formatCategory, &formatDetailNull, &isPromo, &notesNull)
+			err := rows.Scan(&id, &artist, &title, &yearNull, &formatCategory, &formatDetailNull, &isPromo, &isPirate, &notesNull)
 			if err != nil {
 				return err
 			}
@@ -152,13 +152,18 @@ var listCmd = &cobra.Command{
 				promoStr = "yes"
 			}
 
+			pirateStr := "no"
+			if isPirate {
+				pirateStr = "yes"
+			}
+
 			notesStr := ""
 			if notes != nil {
 				notesStr = *notes
 			}
 
-			fmt.Printf("%-3d %-20.20s %-30.30s %-6s %-10s %-10.10s %-5s %-20.20s\n",
-				id, artist, title, yearStr, formatCategory, detailStr, promoStr, notesStr)
+			fmt.Printf("%-3d %-20.20s %-30.30s %-6s %-10s %-10.10s %-5s %-5s %-30.30s\n",
+				id, artist, title, yearStr, formatCategory, detailStr, promoStr, pirateStr, notesStr)
 		}
 		return rows.Err()
 	},
