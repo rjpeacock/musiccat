@@ -128,8 +128,11 @@ Agents must read:
 - Fetch release groups for that artist
 - Display: title, year, release group type
 - User selects one or more release groups
+- Support for quantities: `1(2)` for 2 copies of item 1
+- Support for promo marking: `1p,2,3p` for promo variants
+- Optional variant notes when quantity > 1
 - Insert into `releases` if not present
-- Insert into `ownership` using current batch format
+- Insert multiple `ownership` rows for variants
 - No confirmation prompts
 - Mistakes handled via `recent` / `undo`
 
@@ -141,15 +144,17 @@ For releases not in MusicBrainz:
   - artist
   - title
   - year (optional)
-  - format category
-  - format detail (optional)
+  - format category (shows suggested format details)
+  - format detail (optional, with suggestions)
 - Set `musicbrainz_release_group_id` = NULL
 - Insert into both tables
 
 ### 4. `musiccat list`
 
-- List all stored releases
-- Optional filters: artist, format
+- List all stored releases with ownership IDs
+- Display format_category, format_detail, and notes
+- Optional filters: artist, format, promo, source, notes
+- Sorting by artist, title, year, format, added (default)
 - Offline-only
 
 ### 5. `musiccat update "<artist>" "<title>"`
@@ -172,6 +177,25 @@ For releases not in MusicBrainz:
 - Delete ownership entries by ID
 - `all` undoes the most recent batch
 - Optional confirmation when multiple rows deleted
+
+---
+
+## Format Conventions
+
+### Format Categories and Details
+
+**CD**: Album, Single, EP, Maxi-Single, Promo, Digipak, Jewel Case
+
+**Vinyl**: LP, 12", 10", 7", Single, EP, Picture Disc, Colored Vinyl
+
+**Cassette**: Album, Single, Tape, Cassette
+
+### Multi-Variant Support
+
+- Multiple ownership entries can exist for the same release
+- Use `format_detail` to distinguish variants (e.g., different pressings, colors)
+- Use `notes` field for additional variant information
+- Example: Same album on LP and Picture Disc variants
 
 ---
 
@@ -248,6 +272,7 @@ Only editable fields:
 - `source`
 - `notes`
 - `is_promo`
+- `format_detail`
 
 Non-editable by default:
 
@@ -270,6 +295,55 @@ Outputs:
 - Total spend (sum of `cost`)
 
 No external API calls.
+
+### 4. `musiccat add` (pagination and sorting)
+
+Outputs:
+
+- release groups listed in a **predictable, user-friendly order** 
+- large result sets handled gracefully
+
+Default Sort Order
+
+- **Primary:** release type (`Album` → `EP` → `Single` → `Other`)
+- **Secondary:** first release year (ascending)
+- **Tertiary:** title (alphabetical)
+
+CLI Flags
+
+- `--sort <field>`: override default sorting
+  - `type`, `year`, `title`
+  - Can combine: `--sort type,year,title`
+- `--desc`: reverse sort order
+
+Pagination
+
+- Default page size: 50 items
+- User may fetch next page by entering `99`
+- CLI must indicate page number and total items if known
+
+Optional Filters
+
+- `--album-only` / `--single-only`
+- `--after-year <YYYY>` / `--before-year <YYYY>`
+- `--title <string>`: partial match on release title
+
+### Example CLI Flow
+
+mc add "Louis Armstrong" --page-size 40 --sort type,year,title
+Displaying 1–40 of 172 releases
+
+Album: What a Wonderful World (1967)
+
+Album: Hello, Dolly! (1964)
+...
+
+Single: Hello, Dolly! (1964)
+
+Enter number(s) to select, or 99 to see next page:
+
+- User may select multiple releases (e.g., `1,2,3p`)  
+- Selected releases are inserted into `releases` and `ownership` tables following existing Phase 1 logic
 
 ---
 
