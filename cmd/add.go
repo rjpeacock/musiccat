@@ -117,6 +117,7 @@ func addFromMusicBrainz(artistName string, pageSize int) error {
 	}
 
 	// Insert each selected release and ownership
+	totalAdded := 0
 	for _, item := range selectedItems {
 		rg := releaseGroups[item.index-1]
 		var releaseYear *int = parseYear(rg.FirstReleaseDate)
@@ -124,13 +125,23 @@ func addFromMusicBrainz(artistName string, pageSize int) error {
 		if err != nil {
 			return err
 		}
-		_, err = db.InsertOwnership(database, releaseID, cfg.CurrentFormat, nil, nil, nil, nil, nil, nil, item.promo)
-		if err != nil {
-			return err
+
+		// Insert multiple ownership entries if quantity > 1
+		for i := 0; i < item.quantity; i++ {
+			var notes *string
+			if item.quantity > 1 && item.notes != "" {
+				notes = &item.notes
+			}
+
+			_, err = db.InsertOwnership(database, releaseID, cfg.CurrentFormat, nil, nil, nil, nil, notes, nil, item.promo)
+			if err != nil {
+				return err
+			}
+			totalAdded++
 		}
 	}
 
-	fmt.Printf("Added %d releases to collection.\n", len(selectedItems))
+	fmt.Printf("Added %d ownership entries to collection.\n", totalAdded)
 	return nil
 }
 

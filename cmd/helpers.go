@@ -105,8 +105,10 @@ func selectMultipleItems[T any](prompt string, items []T) ([]T, error) {
 }
 
 type SelectionItem struct {
-	index int
-	promo bool
+	index    int
+	promo    bool
+	quantity int
+	notes    string
 }
 
 func selectReleasesWithPagination(releaseGroups []ReleaseGroup, pageSize int) ([]SelectionItem, error) {
@@ -140,9 +142,9 @@ func selectReleasesWithPagination(releaseGroups []ReleaseGroup, pageSize int) ([
 		}
 		var prompt string
 		if isLastPage {
-			prompt = "Select releases (numbers, comma-separated, suffix 'p' for promo): "
+			prompt = "Select releases (numbers, comma-separated, suffix 'p' for promo, suffix '(n)' for quantity): "
 		} else {
-			prompt = fmt.Sprintf("Select releases (numbers, comma-separated, suffix 'p' for promo, %d for more): ", moreNumber)
+			prompt = fmt.Sprintf("Select releases (numbers, comma-separated, suffix 'p' for promo, suffix '(n)' for quantity, %d for more): ", moreNumber)
 		}
 		input := promptString(prompt)
 		if input == strconv.Itoa(moreNumber) {
@@ -174,12 +176,37 @@ func parseSelections(input string, releaseGroups []ReleaseGroup) ([]SelectionIte
 			promo = true
 			part = part[:len(part)-1]
 		}
+
+		// Handle quantity with optional parentheses: "1(2)" or just "1"
+		quantity := 1
+		if strings.Contains(part, "(") && strings.HasSuffix(part, ")") {
+			parenStart := strings.Index(part, "(")
+			parenEnd := strings.Index(part, ")")
+			quantityStr := part[parenStart+1 : parenEnd]
+			q, err := strconv.Atoi(quantityStr)
+			if err != nil {
+				return nil, fmt.Errorf("invalid quantity in selection %s", part)
+			}
+			quantity = q
+			part = part[:parenStart]
+		}
+
 		num, err := strconv.Atoi(part)
 		if err != nil || num < 1 || num > len(releaseGroups) {
 			return nil, fmt.Errorf("invalid selection %s", part)
 		}
-		selected = append(selected, SelectionItem{index: num, promo: promo})
+
+		selected = append(selected, SelectionItem{index: num, promo: promo, quantity: quantity})
 	}
+
+	// Ask for variant notes for each selected release
+	for i, item := range selected {
+		if item.quantity > 1 {
+			notes := promptString(fmt.Sprintf("Variant notes for %s (optional): ", releaseGroups[item.index-1].Title))
+			selected[i].notes = notes
+		}
+	}
+
 	return selected, nil
 }
 
