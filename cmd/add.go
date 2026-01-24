@@ -152,7 +152,7 @@ func addManual() error {
 	title := promptString("Title: ")
 	manualYear := promptOptionalInt("Year (optional): ")
 	formatCategory := promptValidFormat("Format category (CD, Vinyl, Cassette): ")
-	formatDetailInput := promptString("Format detail (optional): ")
+	formatDetailInput := promptFormatDetail(formatCategory)
 	var formatDetail *string
 	if formatDetailInput != "" {
 		formatDetail = &formatDetailInput

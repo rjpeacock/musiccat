@@ -51,6 +51,17 @@ func promptValidFormat(prompt string) string {
 	}
 }
 
+func promptFormatDetail(formatCategory string) string {
+	suggestions, exists := FormatDetailSuggestions[formatCategory]
+	if !exists {
+		return promptString("Format detail (optional): ")
+	}
+
+	suggestionStr := strings.Join(suggestions, ", ")
+	fmt.Printf("Suggested format details: %s\n", suggestionStr)
+	return promptString("Format detail (optional): ")
+}
+
 func selectItem[T any](prompt string, items []T) (T, error) {
 	var zero T
 	scanner := bufio.NewScanner(os.Stdin)
