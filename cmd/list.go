@@ -34,7 +34,7 @@ var listCmd = &cobra.Command{
 		}
 
 		// Query - show individual ownership entries with IDs
-		query := `SELECT o.id, r.artist, r.title, r.year, o.format_category, o.format_detail, o.is_promo
+		query := `SELECT o.id, r.artist, r.title, r.year, o.format_category, o.format_detail, o.is_promo, o.notes
 			FROM ownership o
 			JOIN releases r ON o.release_id = r.id`
 		var queryArgs []interface{}
@@ -105,19 +105,19 @@ var listCmd = &cobra.Command{
 		}
 		defer rows.Close()
 
-		fmt.Printf("%-3s %-20s %-30s %-6s %-10s %-10s %-5s\n", "ID", "Artist", "Title", "Year", "Format", "Detail", "Promo")
-		fmt.Println(strings.Repeat("-", 90))
+		fmt.Printf("%-3s %-20s %-30s %-6s %-10s %-10s %-5s %-20s\n", "ID", "Artist", "Title", "Year", "Format", "Detail", "Promo", "Notes")
+		fmt.Println(strings.Repeat("-", 110))
 
 		for rows.Next() {
 			var id int
 			var artist, title, formatCategory string
 			var year *int
-			var formatDetail *string
+			var formatDetail, notes *string
 			var isPromo bool
 			var yearNull sql.NullInt32
-			var formatDetailNull sql.NullString
+			var formatDetailNull, notesNull sql.NullString
 
-			err := rows.Scan(&id, &artist, &title, &yearNull, &formatCategory, &formatDetailNull, &isPromo)
+			err := rows.Scan(&id, &artist, &title, &yearNull, &formatCategory, &formatDetailNull, &isPromo, &notesNull)
 			if err != nil {
 				return err
 			}
@@ -130,6 +130,11 @@ var listCmd = &cobra.Command{
 			if formatDetailNull.Valid {
 				fd := formatDetailNull.String
 				formatDetail = &fd
+			}
+
+			if notesNull.Valid {
+				n := notesNull.String
+				notes = &n
 			}
 
 			yearStr := ""
@@ -147,8 +152,13 @@ var listCmd = &cobra.Command{
 				promoStr = "yes"
 			}
 
-			fmt.Printf("%-3d %-20.20s %-30.30s %-6s %-10s %-10.10s %-5s\n",
-				id, artist, title, yearStr, formatCategory, detailStr, promoStr)
+			notesStr := ""
+			if notes != nil {
+				notesStr = *notes
+			}
+
+			fmt.Printf("%-3d %-20.20s %-30.30s %-6s %-10s %-10.10s %-5s %-20.20s\n",
+				id, artist, title, yearStr, formatCategory, detailStr, promoStr, notesStr)
 		}
 		return rows.Err()
 	},
