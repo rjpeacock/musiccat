@@ -76,18 +76,7 @@ func BootstrapDB(db *sql.DB) error {
 
 func InsertRelease(db *sql.DB, artist, title string, year *int, mbid *string) (int64, error) {
 	query := `INSERT OR IGNORE INTO releases (artist, title, year, musicbrainz_release_group_id) VALUES (?, ?, ?, ?)`
-	args := []interface{}{artist, title}
-	if year != nil {
-		args = append(args, *year)
-	} else {
-		args = append(args, nil)
-	}
-	if mbid != nil {
-		args = append(args, *mbid)
-	} else {
-		args = append(args, nil)
-	}
-	result, err := db.Exec(query, args...)
+	result, err := db.Exec(query, artist, title, year, mbid)
 	if err != nil {
 		return 0, err
 	}
@@ -96,39 +85,7 @@ func InsertRelease(db *sql.DB, artist, title string, year *int, mbid *string) (i
 
 func InsertOwnership(db *sql.DB, releaseID int64, formatCategory string, formatDetail *string, purchaseDate *string, cost *float64, source *string, notes *string, discogsID *int, isPromo bool) (int64, error) {
 	query := `INSERT INTO ownership (release_id, format_category, format_detail, purchase_date, cost, source, notes, discogs_release_id, is_promo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-	args := []interface{}{releaseID, formatCategory}
-	if formatDetail != nil {
-		args = append(args, *formatDetail)
-	} else {
-		args = append(args, nil)
-	}
-	if purchaseDate != nil {
-		args = append(args, *purchaseDate)
-	} else {
-		args = append(args, nil)
-	}
-	if cost != nil {
-		args = append(args, *cost)
-	} else {
-		args = append(args, nil)
-	}
-	if source != nil {
-		args = append(args, *source)
-	} else {
-		args = append(args, nil)
-	}
-	if notes != nil {
-		args = append(args, *notes)
-	} else {
-		args = append(args, nil)
-	}
-	if discogsID != nil {
-		args = append(args, *discogsID)
-	} else {
-		args = append(args, nil)
-	}
-	args = append(args, isPromo)
-	result, err := db.Exec(query, args...)
+	result, err := db.Exec(query, releaseID, formatCategory, formatDetail, purchaseDate, cost, source, notes, discogsID, isPromo)
 	if err != nil {
 		return 0, err
 	}
