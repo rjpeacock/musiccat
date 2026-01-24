@@ -120,16 +120,8 @@ func addFromMusicBrainz(artistName string, pageSize int, sortFields string, desc
 		return fmt.Errorf("no releases found for artist '%s'", selectedArtist.Name)
 	}
 
-	// Apply filters
-	var afterYearPtr, beforeYearPtr *int
-	if afterYear != 0 {
-		afterYearPtr = &afterYear
-	}
-	if beforeYear != 0 {
-		beforeYearPtr = &beforeYear
-	}
-
-	filteredGroups := FilterReleaseGroups(releaseGroups, albumOnly, singleOnly, afterYearPtr, beforeYearPtr, titleFilter)
+	// Apply filters AFTER artist selection
+	filteredGroups := applyReleaseGroupFilters(releaseGroups, albumOnly, singleOnly, afterYear, beforeYear, titleFilter)
 	if len(filteredGroups) == 0 {
 		return fmt.Errorf("no releases found matching the specified filters")
 	}
@@ -220,6 +212,19 @@ func addManual() error {
 
 	fmt.Println("Added release to collection.")
 	return nil
+}
+
+// applyReleaseGroupFilters applies filters to release groups after artist selection
+func applyReleaseGroupFilters(releaseGroups []ReleaseGroup, albumOnly, singleOnly bool, afterYear, beforeYear int, titleFilter string) []ReleaseGroup {
+	var afterYearPtr, beforeYearPtr *int
+	if afterYear != 0 {
+		afterYearPtr = &afterYear
+	}
+	if beforeYear != 0 {
+		beforeYearPtr = &beforeYear
+	}
+
+	return FilterReleaseGroups(releaseGroups, albumOnly, singleOnly, afterYearPtr, beforeYearPtr, titleFilter)
 }
 
 func searchArtists(query string) ([]Artist, error) {
