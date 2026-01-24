@@ -20,7 +20,7 @@ Multiple ownership entries are supported for the same release to handle variants
 var ValidFormats = []string{"CD", "Vinyl", "Cassette"}
 
 // FormatDetailSuggestions provides recommended format_detail values for each format_category
-var FormatDetailSuggestions = map[string][]string{
+var formatDetailSuggestions = map[string][]string{
 	"CD":       {"Album", "Single", "EP", "Maxi-Single", "Promo", "Digipak", "Jewel Case"},
 	"Vinyl":    {"LP", "12\"", "10\"", "7\"", "Single", "EP", "Picture Disc", "Colored Vinyl"},
 	"Cassette": {"Album", "Single", "Tape", "Cassette"},

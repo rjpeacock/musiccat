@@ -52,7 +52,7 @@ func promptValidFormat(prompt string) string {
 }
 
 func promptFormatDetail(formatCategory string) string {
-	suggestions, exists := FormatDetailSuggestions[formatCategory]
+	suggestions, exists := formatDetailSuggestions[formatCategory]
 	if !exists {
 		return promptString("Format detail (optional): ")
 	}
