@@ -106,11 +106,11 @@ func selectMultipleItems[T any](prompt string, items []T) ([]T, error) {
 }
 
 type SelectionItem struct {
-	index    int
-	promo    bool
-	pirate   bool
-	quantity int
-	notes    string
+	releaseGroup ReleaseGroup
+	promo        bool
+	pirate       bool
+	quantity     int
+	notes        string
 }
 
 func selectReleasesWithPagination(releaseGroups []ReleaseGroup, pageSize int) ([]SelectionItem, error) {
@@ -130,7 +130,7 @@ func selectReleasesWithPagination(releaseGroups []ReleaseGroup, pageSize int) ([
 		fmt.Printf("Displaying %d–%d of %d releases:\n", start+1, end, len(releaseGroups))
 		for i := start; i < end; i++ {
 			rg := releaseGroups[i]
-			num := i + 1
+			num := i + 1 // Display number matches array index + 1
 			year := parseYear(rg.FirstReleaseDate)
 			yearStr := ""
 			if year != nil {
@@ -202,13 +202,13 @@ func parseSelections(input string, releaseGroups []ReleaseGroup) ([]SelectionIte
 			return nil, fmt.Errorf("invalid selection %s", part)
 		}
 
-		selected = append(selected, SelectionItem{index: num, promo: promo, pirate: pirate, quantity: quantity})
+		selected = append(selected, SelectionItem{releaseGroup: releaseGroups[num-1], promo: promo, pirate: pirate, quantity: quantity})
 	}
 
 	// Ask for variant notes for each selected release
 	for i, item := range selected {
 		if item.quantity > 1 {
-			notes := promptString(fmt.Sprintf("Variant notes for %s (optional): ", releaseGroups[item.index-1].Title))
+			notes := promptString(fmt.Sprintf("Variant notes for %s (optional): ", item.releaseGroup.Title))
 			selected[i].notes = notes
 		}
 	}
@@ -437,4 +437,30 @@ func promptValidFormatUpdate(prompt, current string) *string {
 	}
 	fmt.Printf("Invalid format. Valid: %s\n", strings.Join(ValidFormats, ", "))
 	return nil
+}
+
+func promptOptionalFloat(prompt string, current float64) *float64 {
+	input := promptString(prompt + fmt.Sprintf(" (current: %.2f): ", current))
+	if input == "" {
+		return nil
+	}
+	num, err := strconv.ParseFloat(input, 64)
+	if err != nil {
+		fmt.Println("Invalid number, ignoring")
+		return nil
+	}
+	return &num
+}
+
+func promptOptionalBool(prompt string, current bool) *bool {
+	currentStr := "no"
+	if current {
+		currentStr = "yes"
+	}
+	input := promptString(prompt + fmt.Sprintf(" (current: %s): ", currentStr))
+	if input == "" {
+		return nil
+	}
+	value := strings.EqualFold(input, "yes") || strings.EqualFold(input, "y") || strings.EqualFold(input, "true")
+	return &value
 }

@@ -146,7 +146,7 @@ func addFromMusicBrainz(artistName string, pageSize int, sortFields string, desc
 	// Insert each selected release and ownership
 	totalAdded := 0
 	for _, item := range selectedItems {
-		rg := releaseGroups[item.index-1]
+		rg := item.releaseGroup
 		var releaseYear *int = parseYear(rg.FirstReleaseDate)
 		releaseID, err := db.InsertRelease(database, selectedArtist.Name, rg.Title, releaseYear, &rg.ID)
 		if err != nil {
@@ -156,7 +156,16 @@ func addFromMusicBrainz(artistName string, pageSize int, sortFields string, desc
 		// Insert multiple ownership entries if quantity > 1
 		for i := 0; i < item.quantity; i++ {
 			var notes *string
-			if item.quantity > 1 && item.notes != "" {
+
+			// Prompt for notes for each copy if quantity > 1
+			if item.quantity > 1 {
+				prompt := fmt.Sprintf("Notes for copy %d/%d of %s (optional): ", i+1, item.quantity, rg.Title)
+				noteStr := promptString(prompt)
+				if noteStr != "" {
+					notes = &noteStr
+				}
+			} else if item.notes != "" {
+				// Use existing notes for single copy
 				notes = &item.notes
 			}
 
