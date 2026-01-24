@@ -113,7 +113,7 @@ type SelectionItem struct {
 	notes        string
 }
 
-func selectReleasesWithPagination(releaseGroups []ReleaseGroup, pageSize int) ([]SelectionItem, error) {
+func selectReleasesWithPagination(releaseGroups []ReleaseGroup, pageSize int, formatCategory string) ([]SelectionItem, error) {
 	const moreNumber = 99
 	currentPage := 0
 	for {
@@ -140,7 +140,13 @@ func selectReleasesWithPagination(releaseGroups []ReleaseGroup, pageSize int) ([
 			if rg.PrimaryType != "" {
 				typeStr = " [" + rg.PrimaryType + "]"
 			}
-			fmt.Printf("%d. %s%s%s\n", num, rg.Title, yearStr, typeStr)
+			// Add inferred format detail in brackets
+			formatDetailStr := ""
+			inferredDetail := inferFormatDetail(rg.PrimaryType, formatCategory)
+			if inferredDetail != "" {
+				formatDetailStr = " [" + inferredDetail + "]"
+			}
+			fmt.Printf("%d. %s%s%s%s\n", num, rg.Title, yearStr, typeStr, formatDetailStr)
 		}
 		var prompt string
 		if isLastPage {
@@ -398,6 +404,61 @@ func FilterReleaseGroups(releaseGroups []ReleaseGroup, albumOnly, singleOnly boo
 	}
 
 	return filtered
+}
+
+// inferFormatDetail determines suggested format detail based on release type and current format
+func inferFormatDetail(releaseType, formatCategory string) string {
+	if formatCategory == "" {
+		return ""
+	}
+
+	// Base suggestions by format category
+	switch formatCategory {
+	case "CD":
+		switch releaseType {
+		case "Single":
+			return "CD Single"
+		case "EP":
+			return "CD EP"
+		case "Album":
+			return "CD Album"
+		default:
+			return "CD"
+		}
+	case "Vinyl":
+		switch releaseType {
+		case "Single":
+			return "7\""
+		case "EP":
+			return "10\""
+		case "Album":
+			return "LP"
+		default:
+			return "Vinyl"
+		}
+	case "Cassette":
+		switch releaseType {
+		case "Single":
+			return "Cassette Single"
+		case "Album":
+			return "Cassette Album"
+		default:
+			return "Cassette"
+		}
+	case "Digital":
+		switch releaseType {
+		case "Single":
+			return "Digital Single"
+		case "EP":
+			return "Digital EP"
+		case "Album":
+			return "Digital Album"
+		default:
+			return "Digital"
+		}
+	default:
+		return ""
+	}
 }
 
 func promptOptionalString(prompt, current string) *string {
