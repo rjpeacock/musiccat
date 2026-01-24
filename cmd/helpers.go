@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -208,6 +209,153 @@ func parseSelections(input string, releaseGroups []ReleaseGroup) ([]SelectionIte
 	}
 
 	return selected, nil
+}
+
+// SortReleaseGroups sorts release groups according to the default specification:
+// Primary: release type (Album → EP → Single → Other)
+// Secondary: first release year (ascending)
+// Tertiary: title (alphabetical)
+func SortReleaseGroups(releaseGroups []ReleaseGroup, sortFields []string, desc bool) []ReleaseGroup {
+	sorted := make([]ReleaseGroup, len(releaseGroups))
+	copy(sorted, releaseGroups)
+
+	sort.Slice(sorted, func(i, j int) bool {
+		// If custom sort fields are specified, use them
+		if len(sortFields) > 0 {
+			return compareByCustomFields(sorted[i], sorted[j], sortFields, desc)
+		}
+
+		// Default sorting: type → year → title
+		return compareByDefaultOrder(sorted[i], sorted[j], desc)
+	})
+
+	return sorted
+}
+
+// compareByDefaultOrder implements the default sorting logic
+func compareByDefaultOrder(a, b ReleaseGroup, desc bool) bool {
+	// Primary: release type
+	typeOrder := map[string]int{
+		"Album":  1,
+		"EP":     2,
+		"Single": 3,
+	}
+
+	aTypeOrder := 4 // "Other"
+	bTypeOrder := 4 // "Other"
+
+	if order, exists := typeOrder[a.PrimaryType]; exists {
+		aTypeOrder = order
+	}
+	if order, exists := typeOrder[b.PrimaryType]; exists {
+		bTypeOrder = order
+	}
+
+	if aTypeOrder != bTypeOrder {
+		if desc {
+			return aTypeOrder > bTypeOrder
+		}
+		return aTypeOrder < bTypeOrder
+	}
+
+	// Secondary: year
+	aYear := parseYear(a.FirstReleaseDate)
+	bYear := parseYear(b.FirstReleaseDate)
+
+	if aYear != nil && bYear != nil && *aYear != *bYear {
+		if desc {
+			return *aYear > *bYear
+		}
+		return *aYear < *bYear
+	} else if aYear != nil && bYear == nil {
+		return !desc // Years come before null years when ascending
+	} else if aYear == nil && bYear != nil {
+		return desc // Null years come after years when ascending
+	}
+
+	// Tertiary: title (alphabetical)
+	if desc {
+		return a.Title > b.Title
+	}
+	return a.Title < b.Title
+}
+
+// compareByCustomFields implements custom sorting based on specified fields
+func compareByCustomFields(a, b ReleaseGroup, sortFields []string, desc bool) bool {
+	for _, field := range sortFields {
+		var cmp int
+		switch field {
+		case "type":
+			typeOrder := map[string]int{
+				"Album":  1,
+				"EP":     2,
+				"Single": 3,
+			}
+
+			aTypeOrder := 4 // "Other"
+			bTypeOrder := 4 // "Other"
+
+			if order, exists := typeOrder[a.PrimaryType]; exists {
+				aTypeOrder = order
+			}
+			if order, exists := typeOrder[b.PrimaryType]; exists {
+				bTypeOrder = order
+			}
+
+			cmp = aTypeOrder - bTypeOrder
+
+		case "year":
+			aYear := parseYear(a.FirstReleaseDate)
+			bYear := parseYear(b.FirstReleaseDate)
+
+			if aYear != nil && bYear != nil {
+				cmp = *aYear - *bYear
+			} else if aYear != nil && bYear == nil {
+				cmp = -1
+			} else if aYear == nil && bYear != nil {
+				cmp = 1
+			}
+
+		case "title":
+			if a.Title < b.Title {
+				cmp = -1
+			} else if a.Title > b.Title {
+				cmp = 1
+			} else {
+				cmp = 0
+			}
+		}
+
+		if cmp != 0 {
+			if desc {
+				return cmp > 0
+			}
+			return cmp < 0
+		}
+	}
+
+	// If all fields are equal, maintain original order
+	return false
+}
+
+// parseSortFields parses sort field string into slice of fields
+func parseSortFields(sortStr string) []string {
+	if sortStr == "" {
+		return nil
+	}
+
+	fields := strings.Split(sortStr, ",")
+	validFields := map[string]bool{"type": true, "year": true, "title": true}
+
+	var result []string
+	for _, field := range fields {
+		field = strings.TrimSpace(field)
+		if validFields[field] {
+			result = append(result, field)
+		}
+	}
+
+	return result
 }
 
 func promptOptionalString(prompt, current string) *string {
