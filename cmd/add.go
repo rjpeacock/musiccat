@@ -290,6 +290,6 @@ func makeRequest(url string) (*http.Response, error) {
 
 func init() {
 	addCmd.Flags().Bool("manual", false, "Manually enter release details")
-	addCmd.Flags().Int("page-size", 40, "Number of releases per page")
+	addCmd.Flags().Int("page-size", 50, "Number of releases per page")
 	rootCmd.AddCommand(addCmd)
 }
