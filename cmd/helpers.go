@@ -108,6 +108,7 @@ func selectMultipleItems[T any](prompt string, items []T) ([]T, error) {
 type SelectionItem struct {
 	index    int
 	promo    bool
+	pirate   bool
 	quantity int
 	notes    string
 }
@@ -173,9 +174,13 @@ func parseSelections(input string, releaseGroups []ReleaseGroup) ([]SelectionIte
 	for _, part := range parts {
 		part = strings.TrimSpace(part)
 		promo := false
+		pirate := false
 		if strings.HasSuffix(part, "p") {
 			promo = true
 			part = part[:len(part)-1]
+		} else if strings.HasSuffix(part, "pirate") {
+			pirate = true
+			part = part[:len(part)-6] // remove "pirate" suffix
 		}
 
 		// Handle quantity with optional parentheses: "1(2)" or just "1"
@@ -197,7 +202,7 @@ func parseSelections(input string, releaseGroups []ReleaseGroup) ([]SelectionIte
 			return nil, fmt.Errorf("invalid selection %s", part)
 		}
 
-		selected = append(selected, SelectionItem{index: num, promo: promo, quantity: quantity})
+		selected = append(selected, SelectionItem{index: num, promo: promo, pirate: pirate, quantity: quantity})
 	}
 
 	// Ask for variant notes for each selected release
