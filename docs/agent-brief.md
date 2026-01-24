@@ -175,6 +175,104 @@ For releases not in MusicBrainz:
 
 ---
 
+## Phase 2 — Usage, Inspection, and Insight
+
+Phase 2 focuses on **using and inspecting the catalogue**, not expanding external integrations.
+
+### In Scope
+
+- Smarter listing and filtering
+- Stable ID-based workflows
+- Sorting
+- Collection statistics
+
+### Out of Scope
+
+- Discogs enrichment or syncing
+- MusicBrainz reconciliation
+- Track-level metadata
+- Bulk import workflows
+
+---
+
+## Phase 2 CLI Enhancements
+
+### 1. `musiccat list` (Enhanced)
+
+#### 1.1 Ownership ID Display
+
+- Always display ownership IDs
+- IDs must be usable with `update` and `undo`
+
+Example:
+
+ID Artist Title Year Format Promo
+14 Aerosmith Nine Lives 1997 CD no
+
+---
+
+#### 1.2 Filtering
+
+Optional flags:
+
+- `--artist <string>` (partial, case-insensitive)
+- `--format <FORMAT>`
+- `--promo`
+- `--source <string>`
+- `--notes <string>`
+
+Filters must be composable.
+
+---
+
+#### 1.3 Sorting
+
+Flags:
+
+- `--sort <field>`
+  - `artist`
+  - `title`
+  - `year`
+  - `format`
+  - `added` (default)
+- `--desc`
+
+---
+
+### 2. `musiccat update` (Restricted)
+
+Only editable fields:
+
+- `purchase_date`
+- `cost`
+- `source`
+- `notes`
+- `is_promo`
+
+Non-editable by default:
+
+- artist
+- title
+- year
+- MusicBrainz release group ID
+
+Updates must be flag-driven.
+
+---
+
+### 3. `musiccat stats`
+
+Outputs:
+
+- Total items owned
+- Count by format
+- Promo vs non-promo count
+- Total spend (sum of `cost`)
+
+No external API calls.
+
+---
+
 ## Database Testing
 
 ### Use Generic Database Interfaces
@@ -276,19 +374,6 @@ Commit the tests separately:
 
 - One concern per commit
 - Each commit must compile
-
-**Suggested progression:**
-
-1. Project skeleton + dependencies
-2. Config handling (format state)
-3. SQLite schema + DB bootstrap
-4. MusicBrainz artist search
-5. Release group listing
-6. `add` command
-7. `add --manual`
-8. `recent` and `undo`
-9. `list`
-10. `update`
 
 ## Non-Goals
 
