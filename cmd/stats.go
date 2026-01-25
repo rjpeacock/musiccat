@@ -31,8 +31,10 @@ var statsCmd = &cobra.Command{
 			return err
 		}
 
-		// Count by format
-		formatRows, err := database.Query(`
+		fmt.Printf("Total items owned: %d\n\n", totalItems)
+
+		// Count by format category
+		formatCatRows, err := database.Query(`
 			SELECT format_category, COUNT(*) 
 			FROM ownership 
 			GROUP BY format_category 
@@ -41,29 +43,42 @@ var statsCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		defer formatRows.Close()
+		defer formatCatRows.Close()
 
-		fmt.Println("Format counts:")
-		for formatRows.Next() {
+		fmt.Println("Format category counts:")
+		for formatCatRows.Next() {
 			var format string
 			var count int
-			err := formatRows.Scan(&format, &count)
+			err := formatCatRows.Scan(&format, &count)
 			if err != nil {
 				return err
 			}
 			fmt.Printf("  %s: %d\n", format, count)
 		}
 
-		// Promo vs non-promo count
-		var promoCount int
-		err = database.QueryRow("SELECT COUNT(*) FROM ownership WHERE is_promo = TRUE").Scan(&promoCount)
+		// Count by format detail
+		formatDetailRows, err := database.Query(`
+			SELECT format_detail, COUNT(*) 
+			FROM ownership 
+			WHERE format_detail IS NOT NULL AND format_detail != ''
+			GROUP BY format_detail 
+			ORDER BY COUNT(*) DESC
+		`)
 		if err != nil {
 			return err
 		}
-		nonPromoCount := totalItems - promoCount
+		defer formatDetailRows.Close()
 
-		fmt.Printf("\nPromo items: %d\n", promoCount)
-		fmt.Printf("Non-promo items: %d\n", nonPromoCount)
+		fmt.Println("\nFormat detail counts:")
+		for formatDetailRows.Next() {
+			var detail string
+			var count int
+			err := formatDetailRows.Scan(&detail, &count)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("  %s: %d\n", detail, count)
+		}
 
 		// Total spend (sum of cost)
 		var totalSpend float64
@@ -73,7 +88,34 @@ var statsCmd = &cobra.Command{
 		}
 
 		fmt.Printf("\nTotal spend: $%.2f\n", totalSpend)
-		fmt.Printf("\nTotal items owned: %d\n", totalItems)
+
+		// Top 5 artists by items owned
+		artistRows, err := database.Query(`
+			SELECT r.artist, 
+			       COUNT(*) as total,
+			       SUM(CASE WHEN o.format_detail = 'Album' THEN 1 ELSE 0 END) as albums,
+			       SUM(CASE WHEN o.format_detail = 'Single' THEN 1 ELSE 0 END) as singles
+			FROM ownership o
+			JOIN releases r ON o.release_id = r.id
+			GROUP BY r.artist
+			ORDER BY total DESC
+			LIMIT 5
+		`)
+		if err != nil {
+			return err
+		}
+		defer artistRows.Close()
+
+		fmt.Println("\nTop 5 artists by items owned:")
+		for artistRows.Next() {
+			var artist string
+			var total, albums, singles int
+			err := artistRows.Scan(&artist, &total, &albums, &singles)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("  %s: %d total (%d albums, %d singles)\n", artist, total, albums, singles)
+		}
 
 		return nil
 	},
