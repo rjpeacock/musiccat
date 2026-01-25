@@ -10,7 +10,7 @@ import (
 // All filter parameters are optional - pass zero values to skip filtering.
 func SearchReleaseGroups(artistID string, albumOnly, singleOnly bool, afterYear, beforeYear int, titleFilter string) ([]ReleaseGroup, error) {
 	// Build query with filters
-	query := fmt.Sprintf("artist:%s", artistID)
+	query := fmt.Sprintf("arid:%s", artistID)
 
 	// Add type filters
 	if albumOnly && !singleOnly {
@@ -35,6 +35,7 @@ func SearchReleaseGroups(artistID string, albumOnly, singleOnly bool, afterYear,
 
 	// Request up to 100 release groups (MusicBrainz max)
 	reqURL := fmt.Sprintf("%s/release-group?query=%s&limit=100&fmt=json", baseURL, url.QueryEscape(query))
+	fmt.Printf("DEBUG: Query URL: %s\n", reqURL)
 	
 	resp, err := MakeRequest(reqURL)
 	if err != nil {
