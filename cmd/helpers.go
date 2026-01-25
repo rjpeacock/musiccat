@@ -235,14 +235,6 @@ func parseSelections(input string, releaseGroups []musicbrainz.ReleaseGroup) ([]
 		selected = append(selected, SelectionItem{releaseGroup: releaseGroups[actualIndex], promo: promo, pirate: false, quantity: quantity})
 	}
 
-	// Ask for variant notes for each selected release
-	for i, item := range selected {
-		if item.quantity > 1 {
-			notes := promptString(fmt.Sprintf("Variant notes for %s (optional): ", item.releaseGroup.Title))
-			selected[i].notes = notes
-		}
-	}
-
 	return selected, nil
 }
 
