@@ -85,21 +85,48 @@ func addFromMusicBrainz(artistName string, pageSize int, sortFields string, desc
 	}
 
 	// Search release groups with filters applied via API query
-	releaseGroups, err := musicbrainz.SearchReleaseGroups(selectedArtist.ID, albumOnly, singleOnly, year, titleFilter)
+	allReleaseGroups, err := musicbrainz.SearchReleaseGroups(selectedArtist.ID, albumOnly, singleOnly, year, titleFilter, 0)
 	if err != nil {
 		return err
 	}
-	if len(releaseGroups) == 0 {
+	if len(allReleaseGroups) == 0 {
 		return fmt.Errorf("no releases found for artist '%s' with specified filters", selectedArtist.Name)
 	}
 
 	// Apply sorting
 	sortFieldsSlice := parseSortFields(sortFields)
-	sortedGroups := SortReleaseGroups(releaseGroups, sortFieldsSlice, desc)
+	allReleaseGroups = SortReleaseGroups(allReleaseGroups, sortFieldsSlice, desc)
 
-	selectedItems, err := selectReleasesWithPagination(sortedGroups, pageSize, cfg.CurrentFormat, albumOnly, singleOnly, year, titleFilter)
-	if err != nil {
-		return err
+	// Display and select releases, fetching more if needed
+	var selectedItems []SelectionItem
+	currentPage := 0
+	for {
+		items, needMore, _, err := selectReleasesWithPagination(allReleaseGroups, pageSize, cfg.CurrentFormat, albumOnly, singleOnly, year, titleFilter, currentPage)
+		if err != nil {
+			return err
+		}
+		if needMore {
+			// Fetch more results from API
+			fmt.Println("Fetching more results...")
+			offset := len(allReleaseGroups)
+			moreGroups, err := musicbrainz.SearchReleaseGroups(selectedArtist.ID, albumOnly, singleOnly, year, titleFilter, offset)
+			if err != nil {
+				fmt.Printf("Error fetching more results: %v\n", err)
+				continue
+			}
+			if len(moreGroups) == 0 {
+				fmt.Println("No more results available.")
+				continue
+			}
+			// Sort the new batch and append (don't re-sort everything to keep stable numbering)
+			moreGroups = SortReleaseGroups(moreGroups, sortFieldsSlice, desc)
+			allReleaseGroups = append(allReleaseGroups, moreGroups...)
+			// Continue from the first page of newly fetched results
+			currentPage = offset / pageSize
+			continue
+		}
+		selectedItems = items
+		break
 	}
 
 	// Insert each selected release and ownership
@@ -183,7 +210,7 @@ func addManual() error {
 
 func init() {
 	addCmd.Flags().Bool("manual", false, "Manually enter release details")
-	addCmd.Flags().Int("page-size", 100, "Number of releases per page")
+	addCmd.Flags().Int("page-size", 50, "Number of releases per page")
 	addCmd.Flags().String("sort", "", "Sort by field(s): type, year, title (comma-separated)")
 	addCmd.Flags().Bool("desc", false, "Reverse sort order")
 	addCmd.Flags().Bool("album-only", false, "Show only albums")

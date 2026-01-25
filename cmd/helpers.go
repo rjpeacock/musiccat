@@ -115,8 +115,8 @@ type SelectionItem struct {
 	notes        string
 }
 
-func selectReleasesWithPagination(releaseGroups []musicbrainz.ReleaseGroup, pageSize int, formatCategory string, albumOnly, singleOnly bool, year int, titleFilter string) ([]SelectionItem, error) {
-	currentPage := 0
+func selectReleasesWithPagination(releaseGroups []musicbrainz.ReleaseGroup, pageSize int, formatCategory string, albumOnly, singleOnly bool, year int, titleFilter string, startingPage int) ([]SelectionItem, bool, int, error) {
+	currentPage := startingPage
 	for {
 		start := currentPage * pageSize
 		end := start + pageSize
@@ -128,6 +128,7 @@ func selectReleasesWithPagination(releaseGroups []musicbrainz.ReleaseGroup, page
 		}
 		totalPages := (len(releaseGroups) + pageSize - 1) / pageSize
 		isLastPage := currentPage+1 >= totalPages
+		canFetchMore := len(releaseGroups)%100 == 0 && len(releaseGroups) > 0
 
 		// Show applied filters for clarity
 		var filterInfo []string
@@ -145,14 +146,14 @@ func selectReleasesWithPagination(releaseGroups []musicbrainz.ReleaseGroup, page
 		}
 
 		if len(filterInfo) > 0 {
-			fmt.Printf("Displaying %d–%d of %d releases (filtered: %s):\n", start+1, end, len(releaseGroups), strings.Join(filterInfo, ", "))
+			fmt.Printf("Displaying %d–%d of %d+ releases (filtered: %s):\n", start+1, end, len(releaseGroups), strings.Join(filterInfo, ", "))
 		} else {
-			fmt.Printf("Displaying %d–%d of %d releases:\n", start+1, end, len(releaseGroups))
+			fmt.Printf("Displaying %d–%d of %d+ releases:\n", start+1, end, len(releaseGroups))
 		}
 
 		for i := start; i < end; i++ {
 			rg := releaseGroups[i]
-		num := i + 1 // Display absolute number (1-based)
+			num := i + 1 // Display absolute number (1-based)
 			year := parseYear(rg.FirstReleaseDate)
 			yearStr := ""
 			if year != nil {
@@ -166,32 +167,37 @@ func selectReleasesWithPagination(releaseGroups []musicbrainz.ReleaseGroup, page
 		}
 
 		var prompt string
-		if isLastPage {
+		if isLastPage && !canFetchMore {
 			prompt = "Select releases (numbers, comma-separated, suffix 'p' for promo, suffix '(n)' for quantity): "
 		} else {
 			prompt = "Select releases (numbers, comma-separated, suffix 'p' for promo, suffix '(n)' for quantity, 00 for more): "
 		}
 		input := promptString(prompt)
 		if input == "00" {
-			if isLastPage {
-				fmt.Println("Already on last page.")
+			if isLastPage && canFetchMore {
+				// Signal caller to fetch more results, return current page
+				return nil, true, currentPage, nil
+			} else if !isLastPage {
+				// Just advance to next page of existing results
+				currentPage++
+				continue
+			} else {
+				fmt.Println("No more results available.")
 				continue
 			}
-			currentPage++
-			continue
 		}
-			// Parse selections with page offset
-		selectedItems, err := parseSelections(input, releaseGroups, start)
+			// Parse selections - can select from any previously displayed items
+		selectedItems, err := parseSelections(input, releaseGroups)
 		if err != nil {
 			fmt.Println("Invalid input:", err)
 			continue
 		}
-		return selectedItems, nil
+		return selectedItems, false, 0, nil
 	}
-	return nil, fmt.Errorf("no releases selected")
+	return nil, false, 0, fmt.Errorf("no releases selected")
 }
 
-func parseSelections(input string, releaseGroups []musicbrainz.ReleaseGroup, pageOffset int) ([]SelectionItem, error) {
+func parseSelections(input string, releaseGroups []musicbrainz.ReleaseGroup) ([]SelectionItem, error) {
 	parts := strings.Split(input, ",")
 	var selected []SelectionItem
 
@@ -220,14 +226,11 @@ func parseSelections(input string, releaseGroups []musicbrainz.ReleaseGroup, pag
 
 		num, err := strconv.Atoi(part)
 		if err != nil || num < 1 || num > len(releaseGroups) {
-			return nil, fmt.Errorf("invalid selection %s", part)
+			return nil, fmt.Errorf("invalid selection %s (valid range: 1-%d)", part, len(releaseGroups))
 		}
 
-		// Calculate actual array index with page offset
-		actualIndex := pageOffset + (num - 1)
-		if actualIndex >= len(releaseGroups) {
-			return nil, fmt.Errorf("invalid selection %s", part)
-		}
+		// User enters absolute numbers (1-based), convert to 0-based index
+		actualIndex := num - 1
 
 		selected = append(selected, SelectionItem{releaseGroup: releaseGroups[actualIndex], promo: promo, pirate: false, quantity: quantity})
 	}
