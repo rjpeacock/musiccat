@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
-	"strings"
 )
 
 // SearchReleaseGroups searches for release groups by artist ID on MusicBrainz.
@@ -21,16 +20,12 @@ func SearchReleaseGroups(artistID string, albumOnly, singleOnly bool, afterYear,
 	}
 
 	// Add year filters
-	if afterYear > 0 {
+	if afterYear > 0 && beforeYear > 0 {
+		query += fmt.Sprintf(" AND date:[%d-01-01 TO %d-12-31]", afterYear, beforeYear-1)
+	} else if afterYear > 0 {
 		query += fmt.Sprintf(" AND date:[%d-01-01 TO]", afterYear)
-	}
-	if beforeYear > 0 {
-		if afterYear > 0 {
-			query = strings.TrimSuffix(query, " TO]")
-			query += fmt.Sprintf(" %d-12-31]", beforeYear-1)
-		} else {
-			query += fmt.Sprintf(" AND date:[TO %d-12-31]", beforeYear-1)
-		}
+	} else if beforeYear > 0 {
+		query += fmt.Sprintf(" AND date:[TO %d-12-31]", beforeYear-1)
 	}
 
 	// Add title filter
