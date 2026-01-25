@@ -35,7 +35,7 @@ func TestMusicBrainzRequest(t *testing.T) {
 			}
 
 			// Test filtered release group search for this artist
-			filteredGroups, err := musicbrainz.SearchReleaseGroups(artist.ID, true, false, 1990, 2000, "")
+			filteredGroups, err := musicbrainz.SearchReleaseGroups(artist.ID, true, false, 1995, "")
 			if err != nil {
 				t.Fatalf("searchReleaseGroupsWithFilters failed: %v", err)
 			}
@@ -80,36 +80,34 @@ func TestTwoStageSearchWorkflow(t *testing.T) {
 	// Stage 2: Release group search with filters
 	albumOnly := true
 	singleOnly := false
-	afterYear := 1965
-	beforeYear := 1970
+	year := 1967
 	titleFilter := ""
 
 	releaseGroups, err := musicbrainz.SearchReleaseGroups(
 		beatlesArtist.ID,
 		albumOnly,
 		singleOnly,
-		afterYear,
-		beforeYear,
+		year,
 		titleFilter,
 	)
 	if err != nil {
 		t.Fatalf("Stage 2 - filtered release group search failed: %v", err)
 	}
 
-	// Verify all results are albums within the date range
+	// Verify all results are albums from 1967
 	for _, rg := range releaseGroups {
 		if rg.PrimaryType != "Album" {
 			t.Errorf("Stage 2 - Expected album type, got '%s' for '%s'", rg.PrimaryType, rg.Title)
 		}
 
-		year := parseYear(rg.FirstReleaseDate)
-		if year != nil && (*year < 1966 || *year > 1969) {
-			t.Errorf("Stage 2 - Expected year between 1966-1969, got %d for '%s'", *year, rg.Title)
+		releaseYear := parseYear(rg.FirstReleaseDate)
+		if releaseYear != nil && *releaseYear != 1967 {
+			t.Errorf("Stage 2 - Expected year 1967, got %d for '%s'", *releaseYear, rg.Title)
 		}
 	}
 
 	if len(releaseGroups) == 0 {
-		t.Error("Stage 2 - Expected at least one album between 1966-1969 for The Beatles")
+		t.Error("Stage 2 - Expected at least one album from 1967 for The Beatles")
 	}
 }
 
@@ -155,14 +153,14 @@ func TestFilterCombinations(t *testing.T) {
 	}
 
 	// Test year filter
-	after2000, err := musicbrainz.SearchReleaseGroups(radiohead.ID, false, false, 2000, 0, "")
+	year2007, err := musicbrainz.SearchReleaseGroups(radiohead.ID, false, false, 2007, "")
 	if err != nil {
 		t.Fatalf("Year filter failed: %v", err)
 	}
-	for _, rg := range after2000 {
-		year := parseYear(rg.FirstReleaseDate)
-		if year != nil && *year <= 2000 {
-			t.Errorf("Expected year > 2000, got %d for '%s'", *year, rg.Title)
+	for _, rg := range year2007 {
+		releaseYear := parseYear(rg.FirstReleaseDate)
+		if releaseYear != nil && *releaseYear != 2007 {
+			t.Errorf("Expected year 2007, got %d for '%s'", *releaseYear, rg.Title)
 		}
 	}
 

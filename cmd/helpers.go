@@ -115,7 +115,7 @@ type SelectionItem struct {
 	notes        string
 }
 
-func selectReleasesWithPagination(releaseGroups []musicbrainz.ReleaseGroup, pageSize int, formatCategory string, albumOnly, singleOnly bool, afterYear, beforeYear int, titleFilter string) ([]SelectionItem, error) {
+func selectReleasesWithPagination(releaseGroups []musicbrainz.ReleaseGroup, pageSize int, formatCategory string, albumOnly, singleOnly bool, year int, titleFilter string) ([]SelectionItem, error) {
 	const moreNumber = 99
 	currentPage := 0
 	for {
@@ -138,15 +138,8 @@ func selectReleasesWithPagination(releaseGroups []musicbrainz.ReleaseGroup, page
 		if singleOnly {
 			filterInfo = append(filterInfo, "singles only")
 		}
-		if afterYear > 0 {
-			filterInfo = append(filterInfo, fmt.Sprintf("after %d", afterYear))
-		}
-		if beforeYear > 0 {
-			if afterYear > 0 {
-				filterInfo = append(filterInfo, fmt.Sprintf("%d-%d", afterYear, beforeYear-1))
-			} else {
-				filterInfo = append(filterInfo, fmt.Sprintf("before %d", beforeYear-1))
-			}
+		if year > 0 {
+			filterInfo = append(filterInfo, fmt.Sprintf("year %d", year))
 		}
 		if titleFilter != "" {
 			filterInfo = append(filterInfo, fmt.Sprintf("title '%s'", titleFilter))

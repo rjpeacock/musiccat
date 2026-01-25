@@ -325,7 +325,7 @@ Pagination
 Optional Filters
 
 - `--album-only` / `--single-only`
-- `--after-year <YYYY>` / `--before-year <YYYY>`
+- `--year <YYYY>`
 - `--title <string>`: partial match on release title
 
 ### Example CLI Flow

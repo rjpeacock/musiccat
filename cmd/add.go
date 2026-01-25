@@ -31,16 +31,15 @@ var addCmd = &cobra.Command{
 		desc, _ := cmd.Flags().GetBool("desc")
 		albumOnly, _ := cmd.Flags().GetBool("album-only")
 		singleOnly, _ := cmd.Flags().GetBool("single-only")
-		afterYear, _ := cmd.Flags().GetInt("after-year")
-		beforeYear, _ := cmd.Flags().GetInt("before-year")
+		year, _ := cmd.Flags().GetInt("year")
 		titleFilter, _ := cmd.Flags().GetString("title")
 		pirateFlag, _ := cmd.Flags().GetBool("pirate")
 
-		return addFromMusicBrainz(artistName, pageSize, sortFields, desc, albumOnly, singleOnly, afterYear, beforeYear, titleFilter, pirateFlag)
+		return addFromMusicBrainz(artistName, pageSize, sortFields, desc, albumOnly, singleOnly, year, titleFilter, pirateFlag)
 	},
 }
 
-func addFromMusicBrainz(artistName string, pageSize int, sortFields string, desc bool, albumOnly, singleOnly bool, afterYear, beforeYear int, titleFilter string, pirateFlag bool) error {
+func addFromMusicBrainz(artistName string, pageSize int, sortFields string, desc bool, albumOnly, singleOnly bool, year int, titleFilter string, pirateFlag bool) error {
 	// Load config for current format
 	cfg, err := config.LoadConfig()
 	if err != nil {
@@ -86,7 +85,7 @@ func addFromMusicBrainz(artistName string, pageSize int, sortFields string, desc
 	}
 
 	// Search release groups with filters applied via API query
-	releaseGroups, err := musicbrainz.SearchReleaseGroups(selectedArtist.ID, albumOnly, singleOnly, afterYear, beforeYear, titleFilter)
+	releaseGroups, err := musicbrainz.SearchReleaseGroups(selectedArtist.ID, albumOnly, singleOnly, year, titleFilter)
 	if err != nil {
 		return err
 	}
@@ -98,7 +97,7 @@ func addFromMusicBrainz(artistName string, pageSize int, sortFields string, desc
 	sortFieldsSlice := parseSortFields(sortFields)
 	sortedGroups := SortReleaseGroups(releaseGroups, sortFieldsSlice, desc)
 
-	selectedItems, err := selectReleasesWithPagination(sortedGroups, pageSize, cfg.CurrentFormat, albumOnly, singleOnly, afterYear, beforeYear, titleFilter)
+	selectedItems, err := selectReleasesWithPagination(sortedGroups, pageSize, cfg.CurrentFormat, albumOnly, singleOnly, year, titleFilter)
 	if err != nil {
 		return err
 	}
@@ -189,8 +188,7 @@ func init() {
 	addCmd.Flags().Bool("desc", false, "Reverse sort order")
 	addCmd.Flags().Bool("album-only", false, "Show only albums")
 	addCmd.Flags().Bool("single-only", false, "Show only singles")
-	addCmd.Flags().Int("after-year", 0, "Show releases after this year")
-	addCmd.Flags().Int("before-year", 0, "Show releases before this year")
+	addCmd.Flags().Int("year", 0, "Filter by specific release year")
 	addCmd.Flags().String("title", "", "Filter by release title (partial match)")
 	addCmd.Flags().Bool("pirate", false, "Mark releases as pirate copies")
 	rootCmd.AddCommand(addCmd)

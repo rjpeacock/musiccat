@@ -8,7 +8,7 @@ import (
 
 // SearchReleaseGroups searches for release groups by artist ID on MusicBrainz.
 // All filter parameters are optional - pass zero values to skip filtering.
-func SearchReleaseGroups(artistID string, albumOnly, singleOnly bool, afterYear, beforeYear int, titleFilter string) ([]ReleaseGroup, error) {
+func SearchReleaseGroups(artistID string, albumOnly, singleOnly bool, year int, titleFilter string) ([]ReleaseGroup, error) {
 	// Build query with filters
 	query := fmt.Sprintf("arid:%s", artistID)
 
@@ -19,13 +19,9 @@ func SearchReleaseGroups(artistID string, albumOnly, singleOnly bool, afterYear,
 		query += " AND type:single"
 	}
 
-	// Add year filters
-	if afterYear > 0 && beforeYear > 0 {
-		query += fmt.Sprintf(" AND date:[%d-01-01 TO %d-12-31]", afterYear, beforeYear-1)
-	} else if afterYear > 0 {
-		query += fmt.Sprintf(" AND date:[%d-01-01 TO]", afterYear)
-	} else if beforeYear > 0 {
-		query += fmt.Sprintf(" AND date:[TO %d-12-31]", beforeYear-1)
+	// Add year filter
+	if year > 0 {
+		query += fmt.Sprintf(" AND firstreleasedate:%d", year)
 	}
 
 	// Add title filter
