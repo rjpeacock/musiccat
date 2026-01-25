@@ -6,32 +6,41 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/spf13/cobra"
 	"musiccat/internal/db"
+
+	"github.com/spf13/cobra"
 )
 
-type UpdateRecord struct {
-	OwnershipID  int
-	ReleaseID    int
-	Artist       string
-	Title        string
-	Year         *int
-	Format       string
-	FormatDetail *string
-	PurchaseDate *string
-	Cost         *float64
-	Source       *string
-	Notes        *string
-	MBID         *string
-}
-
 var updateCmd = &cobra.Command{
-	Use:   `update "<artist>" "<title>"`,
-	Short: "Update release and ownership details",
-	Args:  cobra.ExactArgs(2),
+	Use:   "update <id>",
+	Short: "Update ownership details (interactive by default)",
+	Long: `Update ownership details interactively or using flags.
+Editable fields: purchase_date, cost, source, notes, is_promo, is_pirate.
+Non-editable fields: artist, title, year, format, MusicBrainz ID.
+Interactive mode is used when no flags are provided.`,
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		artist := args[0]
-		title := args[1]
+		idStr := args[0]
+		id, err := strconv.Atoi(idStr)
+		if err != nil {
+			return fmt.Errorf("invalid ID: %s", idStr)
+		}
+
+		cost, _ := cmd.Flags().GetFloat64("cost")
+		purchaseDate, _ := cmd.Flags().GetString("purchase-date")
+		source, _ := cmd.Flags().GetString("source")
+		promo, _ := cmd.Flags().GetBool("promo")
+		pirate, _ := cmd.Flags().GetBool("pirate")
+		notes, _ := cmd.Flags().GetString("notes")
+		formatDetail, _ := cmd.Flags().GetString("format-detail")
+
+		// Check if any flags were provided
+		hasFlags := cmd.Flags().Changed("cost") || cmd.Flags().Changed("purchase-date") ||
+			cmd.Flags().Changed("source") || cmd.Flags().Changed("promo") || cmd.Flags().Changed("pirate") || cmd.Flags().Changed("notes") || cmd.Flags().Changed("format-detail")
+		if !hasFlags {
+			// Default to interactive mode if no flags provided
+			return updateInteractive(id)
+		}
 
 		// Open DB
 		database, err := db.OpenDB()
@@ -45,243 +54,147 @@ var updateCmd = &cobra.Command{
 			return err
 		}
 
-		// Find matching ownership
-		rows, err := database.Query(`
-			SELECT o.id, r.id, r.artist, r.title, r.year, o.format_category, o.format_detail, o.purchase_date, o.cost, o.source, o.notes, r.musicbrainz_release_group_id
-			FROM ownership o
-			JOIN releases r ON o.release_id = r.id
-			WHERE r.artist LIKE ? AND r.title LIKE ?
-		`, "%"+artist+"%", "%"+title+"%")
+		// Check if ownership exists
+		var releaseID int
+		err = database.QueryRow("SELECT release_id FROM ownership WHERE id = ?", id).Scan(&releaseID)
 		if err != nil {
-			return err
+			return fmt.Errorf("ownership with ID %d not found", id)
 		}
-		defer rows.Close()
 
-		var records []UpdateRecord
-		for rows.Next() {
-			var rec UpdateRecord
-			var yearNull sql.NullInt32
-			var formatDetail, purchaseDate, source, notes, mbid sql.NullString
-			var cost sql.NullFloat64
-			err := rows.Scan(&rec.OwnershipID, &rec.ReleaseID, &rec.Artist, &rec.Title, &yearNull, &rec.Format, &formatDetail, &purchaseDate, &cost, &source, &notes, &mbid)
+		// Update with flags
+		updateOwnership := "UPDATE ownership SET"
+		var updateArgs []interface{}
+		sets := []string{}
+
+		if cmd.Flags().Changed("cost") {
+			sets = append(sets, " cost = ?")
+			updateArgs = append(updateArgs, cost)
+		}
+		if cmd.Flags().Changed("purchase-date") {
+			sets = append(sets, " purchase_date = ?")
+			updateArgs = append(updateArgs, purchaseDate)
+		}
+		if cmd.Flags().Changed("source") {
+			sets = append(sets, " source = ?")
+			updateArgs = append(updateArgs, source)
+		}
+		if cmd.Flags().Changed("promo") {
+			sets = append(sets, " is_promo = ?")
+			updateArgs = append(updateArgs, promo)
+		}
+		if cmd.Flags().Changed("pirate") {
+			sets = append(sets, " is_pirate = ?")
+			updateArgs = append(updateArgs, pirate)
+		}
+		if cmd.Flags().Changed("notes") {
+			sets = append(sets, " notes = ?")
+			updateArgs = append(updateArgs, notes)
+		}
+		if cmd.Flags().Changed("format-detail") {
+			sets = append(sets, " format_detail = ?")
+			updateArgs = append(updateArgs, formatDetail)
+		}
+
+		if len(sets) > 0 {
+			updateOwnership += " " + strings.Join(sets, ", ") + " WHERE id = ?"
+			updateArgs = append(updateArgs, id)
+			_, err = database.Exec(updateOwnership, updateArgs...)
 			if err != nil {
 				return err
 			}
-			if yearNull.Valid {
-				y := int(yearNull.Int32)
-				rec.Year = &y
-			}
-			if formatDetail.Valid {
-				rec.FormatDetail = &formatDetail.String
-			}
-			if purchaseDate.Valid {
-				rec.PurchaseDate = &purchaseDate.String
-			}
-			if cost.Valid {
-				rec.Cost = &cost.Float64
-			}
-			if source.Valid {
-				rec.Source = &source.String
-			}
-			if notes.Valid {
-				rec.Notes = &notes.String
-			}
-			if mbid.Valid {
-				rec.MBID = &mbid.String
-			}
-			records = append(records, rec)
-		}
-		if err := rows.Err(); err != nil {
-			return err
-		}
-		if len(records) == 0 {
-			return fmt.Errorf("no matching releases found")
 		}
 
-		var selected UpdateRecord
-		if len(records) == 1 {
-			selected = records[0]
-		} else {
-			fmt.Println("Multiple matches:")
-			for i, rec := range records {
-				fmt.Printf("%d. %s - %s (%s", i+1, rec.Artist, rec.Title, rec.Format)
-				if rec.Year != nil {
-					fmt.Printf(", %d", *rec.Year)
-				}
-				if rec.FormatDetail != nil {
-					fmt.Printf(", %s", *rec.FormatDetail)
-				}
-				fmt.Println(")")
-			}
-			idx, err := selectItem("Select which to update (number): ", records)
-			if err != nil {
-				return err
-			}
-			selected = idx
-		}
-
-		// Prompts for updates
-		fmt.Println("Enter new values (leave blank to keep current):")
-
-		newArtist := promptOptionalString("Artist", selected.Artist)
-		newTitle := promptOptionalString("Title", selected.Title)
-		newYear := promptOptionalIntUpdate("Year", selected.Year)
-		newMBID := promptOptionalString("MusicBrainz ID", "")
-		if newMBID != nil && *newMBID == "" {
-			newMBID = nil
-		}
-		newFormat := promptValidFormatUpdate("Format category", selected.Format)
-		newFormatDetail := promptOptionalString("Format detail", "")
-		if newFormatDetail != nil && *newFormatDetail == "" {
-			newFormatDetail = nil
-		}
-		newPurchaseDate := promptOptionalString("Purchase date", "")
-		if newPurchaseDate != nil && *newPurchaseDate == "" {
-			newPurchaseDate = nil
-		}
-		newCost := promptOptionalFloat("Cost", selected.Cost)
-		newSource := promptOptionalString("Source", "")
-		if newSource != nil && *newSource == "" {
-			newSource = nil
-		}
-		newNotes := promptOptionalString("Notes", "")
-		if newNotes != nil && *newNotes == "" {
-			newNotes = nil
-		}
-
-		// Update release
-		if newArtist != nil || newTitle != nil || newYear != nil || newMBID != nil {
-			updateRelease := "UPDATE releases SET"
-			var updateArgs []interface{}
-			sets := []string{}
-			if newArtist != nil {
-				sets = append(sets, " artist = ?")
-				updateArgs = append(updateArgs, *newArtist)
-			}
-			if newTitle != nil {
-				sets = append(sets, " title = ?")
-				updateArgs = append(updateArgs, *newTitle)
-			}
-			if newYear != nil {
-				sets = append(sets, " year = ?")
-				updateArgs = append(updateArgs, *newYear)
-			}
-			if newMBID != nil {
-				sets = append(sets, " musicbrainz_release_group_id = ?")
-				updateArgs = append(updateArgs, *newMBID)
-			}
-			if len(sets) > 0 {
-				updateRelease += strings.Join(sets, ",")
-				updateRelease += " WHERE id = ?"
-				updateArgs = append(updateArgs, selected.ReleaseID)
-				_, err = database.Exec(updateRelease, updateArgs...)
-				if err != nil {
-					return err
-				}
-			}
-		}
-
-		// Update ownership
-		if newFormat != nil || newFormatDetail != nil || newPurchaseDate != nil || newCost != nil || newSource != nil || newNotes != nil {
-			updateOwnership := "UPDATE ownership SET"
-			var updateArgs []interface{}
-			sets := []string{}
-			if newFormat != nil {
-				sets = append(sets, " format_category = ?")
-				updateArgs = append(updateArgs, *newFormat)
-			}
-			if newFormatDetail != nil {
-				sets = append(sets, " format_detail = ?")
-				updateArgs = append(updateArgs, *newFormatDetail)
-			}
-			if newPurchaseDate != nil {
-				sets = append(sets, " purchase_date = ?")
-				updateArgs = append(updateArgs, *newPurchaseDate)
-			}
-			if newCost != nil {
-				sets = append(sets, " cost = ?")
-				updateArgs = append(updateArgs, *newCost)
-			}
-			if newSource != nil {
-				sets = append(sets, " source = ?")
-				updateArgs = append(updateArgs, *newSource)
-			}
-			if newNotes != nil {
-				sets = append(sets, " notes = ?")
-				updateArgs = append(updateArgs, *newNotes)
-			}
-			if len(sets) > 0 {
-				updateOwnership += strings.Join(sets, ",")
-				updateOwnership += " WHERE id = ?"
-				updateArgs = append(updateArgs, selected.OwnershipID)
-				_, err = database.Exec(updateOwnership, updateArgs...)
-				if err != nil {
-					return err
-				}
-			}
-		}
-
-		fmt.Println("Updated successfully.")
+		fmt.Printf("Updated ownership ID %d successfully.\n", id)
 		return nil
 	},
 }
 
-func promptOptionalString(prompt, current string) *string {
-	input := promptString(prompt + fmt.Sprintf(" (current: %s): ", current))
-	if input == "" {
-		return nil
-	}
-	return &input
-}
-
-func promptOptionalIntUpdate(prompt string, current *int) *int {
-	currentStr := ""
-	if current != nil {
-		currentStr = strconv.Itoa(*current)
-	}
-	input := promptString(prompt + fmt.Sprintf(" (current: %s): ", currentStr))
-	if input == "" {
-		return nil
-	}
-	num, err := strconv.Atoi(input)
+func updateInteractive(id int) error {
+	// Open DB
+	database, err := db.OpenDB()
 	if err != nil {
-		fmt.Println("Invalid number, ignoring")
-		return nil
+		return err
 	}
-	return &num
+	defer database.Close()
+
+	// Bootstrap if needed
+	if err := db.BootstrapDB(database); err != nil {
+		return err
+	}
+
+	// Get current values
+	var currentNotes, currentSource, currentFormatDetail, currentPurchaseDate sql.NullString
+	var currentCost sql.NullFloat64
+	var currentPromo, currentPirate bool
+
+	err = database.QueryRow(`
+		SELECT notes, source, format_detail, purchase_date, cost, is_promo, is_pirate 
+		FROM ownership WHERE id = ?`, id).Scan(
+		&currentNotes, &currentSource, &currentFormatDetail, &currentPurchaseDate,
+		&currentCost, &currentPromo, &currentPirate)
+	if err != nil {
+		return fmt.Errorf("ownership with ID %d not found", id)
+	}
+
+	// Display current values and prompt for new ones
+	fmt.Printf("Current values for ownership ID %d:\n", id)
+	fmt.Printf("Notes: %s\n", safeNullString(currentNotes))
+	fmt.Printf("Source: %s\n", safeNullString(currentSource))
+	fmt.Printf("Format Detail: %s\n", safeNullString(currentFormatDetail))
+	fmt.Printf("Purchase Date: %s\n", safeNullString(currentPurchaseDate))
+	if currentCost.Valid {
+		fmt.Printf("Cost: %.2f\n", currentCost.Float64)
+	} else {
+		fmt.Printf("Cost: (empty)\n")
+	}
+	fmt.Printf("Promo: %t\n", currentPromo)
+	fmt.Printf("Pirate: %t\n", currentPirate)
+	fmt.Println()
+
+	// Prompt for updates
+	newNotes := promptOptionalString("Notes", nullStringValue(currentNotes))
+	newSource := promptOptionalString("Source", nullStringValue(currentSource))
+	newFormatDetail := promptOptionalString("Format detail", nullStringValue(currentFormatDetail))
+	newPurchaseDate := promptOptionalString("Purchase date", nullStringValue(currentPurchaseDate))
+	newCost := promptOptionalFloat("Cost", nullFloat64Value(currentCost))
+	newPromo := promptOptionalBool("Promo", currentPromo)
+	newPirate := promptOptionalBool("Pirate", currentPirate)
+
+	// Apply updates using the new UpdateOwnership function
+	return db.UpdateOwnership(database, int64(id), newFormatDetail, newPurchaseDate, newCost, newSource, newNotes, nil, newPromo, newPirate)
 }
 
-func promptValidFormatUpdate(prompt, current string) *string {
-	input := promptString(prompt + fmt.Sprintf(" (current: %s): ", current))
-	if input == "" {
-		return nil
-	}
-	for _, f := range ValidFormats {
-		if strings.EqualFold(input, f) {
-			return &f
+func safeNullString(ns sql.NullString) string {
+	if ns.Valid {
+		if ns.String == "" {
+			return "(empty)"
 		}
+		return ns.String
 	}
-	fmt.Printf("Invalid format. Valid: %s\n", strings.Join(ValidFormats, ", "))
-	return nil
+	return "(empty)"
 }
 
-func promptOptionalFloat(prompt string, current *float64) *float64 {
-	currentStr := ""
-	if current != nil {
-		currentStr = fmt.Sprintf("%.2f", *current)
+func nullStringValue(ns sql.NullString) string {
+	if ns.Valid {
+		return ns.String
 	}
-	input := promptString(prompt + fmt.Sprintf(" (current: %s): ", currentStr))
-	if input == "" {
-		return nil
+	return ""
+}
+
+func nullFloat64Value(nf sql.NullFloat64) float64 {
+	if nf.Valid {
+		return nf.Float64
 	}
-	num, err := strconv.ParseFloat(input, 64)
-	if err != nil {
-		fmt.Println("Invalid number, ignoring")
-		return nil
-	}
-	return &num
+	return 0
 }
 
 func init() {
+	updateCmd.Flags().Float64("cost", 0, "Update cost (use 0 to clear)")
+	updateCmd.Flags().String("purchase-date", "", "Update purchase date (use empty string to clear)")
+	updateCmd.Flags().String("source", "", "Update source (use empty string to clear)")
+	updateCmd.Flags().Bool("promo", false, "Update promo status")
+	updateCmd.Flags().Bool("pirate", false, "Update pirate status")
+	updateCmd.Flags().String("notes", "", "Update notes (use empty string to clear)")
+	updateCmd.Flags().String("format-detail", "", "Update format detail (use empty string to clear)")
 	rootCmd.AddCommand(updateCmd)
 }

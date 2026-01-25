@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"os"
 	"path/filepath"
+	"strings"
 
 	_ "modernc.org/sqlite"
 )
@@ -53,7 +54,9 @@ CREATE TABLE IF NOT EXISTS ownership (
     cost REAL,
     source TEXT,
     notes TEXT,
-    discogs_release_id INTEGER
+    discogs_release_id INTEGER,
+    is_promo BOOLEAN DEFAULT FALSE,
+    is_pirate BOOLEAN DEFAULT FALSE
 );
 `
 
@@ -64,63 +67,48 @@ func BootstrapDB(db *sql.DB) error {
 	if _, err := db.Exec(createOwnershipTable); err != nil {
 		return err
 	}
+	// Migration: add is_promo column if missing
+	_, err := db.Exec("ALTER TABLE ownership ADD COLUMN is_promo BOOLEAN DEFAULT FALSE")
+	if err != nil && !strings.Contains(err.Error(), "duplicate column name") {
+		return err
+	}
+	// Migration: add is_pirate column if missing
+	_, err = db.Exec("ALTER TABLE ownership ADD COLUMN is_pirate BOOLEAN DEFAULT FALSE")
+	if err != nil && !strings.Contains(err.Error(), "duplicate column name") {
+		return err
+	}
 	return nil
 }
 
 func InsertRelease(db *sql.DB, artist, title string, year *int, mbid *string) (int64, error) {
-	query := `INSERT OR IGNORE INTO releases (artist, title, year, musicbrainz_release_group_id) VALUES (?, ?, ?, ?)`
-	args := []interface{}{artist, title}
-	if year != nil {
-		args = append(args, *year)
-	} else {
-		args = append(args, nil)
-	}
+	// First, check if release already exists
 	if mbid != nil {
-		args = append(args, *mbid)
-	} else {
-		args = append(args, nil)
+		var existingID int64
+		err := db.QueryRow("SELECT id FROM releases WHERE musicbrainz_release_group_id = ?", mbid).Scan(&existingID)
+		if err == nil {
+			// Release already exists, return its ID
+			return existingID, nil
+		}
+		if err != sql.ErrNoRows {
+			// Some other error occurred
+			return 0, err
+		}
+		// sql.ErrNoRows means release doesn't exist, proceed with insert
 	}
-	result, err := db.Exec(query, args...)
+	
+	// Insert the new release
+	query := `INSERT INTO releases (artist, title, year, musicbrainz_release_group_id) VALUES (?, ?, ?, ?)`
+	result, err := db.Exec(query, artist, title, year, mbid)
 	if err != nil {
 		return 0, err
 	}
+	
 	return result.LastInsertId()
 }
 
-func InsertOwnership(db *sql.DB, releaseID int64, formatCategory string, formatDetail *string, purchaseDate *string, cost *float64, source *string, notes *string, discogsID *int) (int64, error) {
-	query := `INSERT INTO ownership (release_id, format_category, format_detail, purchase_date, cost, source, notes, discogs_release_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-	args := []interface{}{releaseID, formatCategory}
-	if formatDetail != nil {
-		args = append(args, *formatDetail)
-	} else {
-		args = append(args, nil)
-	}
-	if purchaseDate != nil {
-		args = append(args, *purchaseDate)
-	} else {
-		args = append(args, nil)
-	}
-	if cost != nil {
-		args = append(args, *cost)
-	} else {
-		args = append(args, nil)
-	}
-	if source != nil {
-		args = append(args, *source)
-	} else {
-		args = append(args, nil)
-	}
-	if notes != nil {
-		args = append(args, *notes)
-	} else {
-		args = append(args, nil)
-	}
-	if discogsID != nil {
-		args = append(args, *discogsID)
-	} else {
-		args = append(args, nil)
-	}
-	result, err := db.Exec(query, args...)
+func InsertOwnership(db *sql.DB, releaseID int64, formatCategory string, formatDetail *string, purchaseDate *string, cost *float64, source *string, notes *string, discogsID *int, isPromo bool, isPirate bool) (int64, error) {
+	query := `INSERT INTO ownership (release_id, format_category, format_detail, purchase_date, cost, source, notes, discogs_release_id, is_promo, is_pirate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	result, err := db.Exec(query, releaseID, formatCategory, formatDetail, purchaseDate, cost, source, notes, discogsID, isPromo, isPirate)
 	if err != nil {
 		return 0, err
 	}
@@ -131,4 +119,20 @@ func GetReleaseID(db *sql.DB, mbid string) (int64, error) {
 	var id int64
 	err := db.QueryRow("SELECT id FROM releases WHERE musicbrainz_release_group_id = ?", mbid).Scan(&id)
 	return id, err
+}
+
+func UpdateOwnership(db *sql.DB, ownershipID int64, formatDetail *string, purchaseDate *string, cost *float64, source *string, notes *string, discogsID *int, isPromo *bool, isPirate *bool) error {
+	query := `UPDATE ownership SET 
+		format_detail = COALESCE(?, format_detail),
+		purchase_date = COALESCE(?, purchase_date),
+		cost = COALESCE(?, cost),
+		source = COALESCE(?, source),
+		notes = COALESCE(?, notes),
+		discogs_release_id = COALESCE(?, discogs_release_id),
+		is_promo = COALESCE(?, is_promo),
+		is_pirate = COALESCE(?, is_pirate)
+	WHERE id = ?`
+
+	_, err := db.Exec(query, formatDetail, purchaseDate, cost, source, notes, discogsID, isPromo, isPirate, ownershipID)
+	return err
 }

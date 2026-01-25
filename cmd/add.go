@@ -1,45 +1,19 @@
 package cmd
 
 import (
-	"bufio"
-	"encoding/json"
 	"fmt"
-	"net/http"
-	"os"
-	"strconv"
 	"strings"
-	"time"
 
-	"github.com/spf13/cobra"
+	"musiccat/external/musicbrainz"
 	"musiccat/internal/config"
 	"musiccat/internal/db"
+
+	"github.com/spf13/cobra"
 )
-
-type ArtistSearchResponse struct {
-	Artists []Artist `json:"artists"`
-}
-
-type Artist struct {
-	ID             string `json:"id"`
-	Name           string `json:"name"`
-	Disambiguation string `json:"disambiguation"`
-}
-
-type ReleaseGroupSearchResponse struct {
-	ReleaseGroups []ReleaseGroup `json:"release-groups"`
-}
-
-type ReleaseGroup struct {
-	ID               string `json:"id"`
-	Title            string `json:"title"`
-	FirstReleaseDate string `json:"first-release-date"`
-	PrimaryType      string `json:"primary-type"`
-}
 
 var addCmd = &cobra.Command{
 	Use:   `add "<artist name>"`,
 	Short: "Search and add releases by artist",
-	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		manual, _ := cmd.Flags().GetBool("manual")
 		if manual {
@@ -48,116 +22,24 @@ var addCmd = &cobra.Command{
 			}
 			return addManual()
 		}
-		if len(args) != 1 {
+		if len(args) == 0 {
 			return fmt.Errorf("requires artist name argument")
 		}
-		artistName := args[0]
-		return addFromMusicBrainz(artistName)
+		artistName := strings.Join(args, " ")
+		pageSize, _ := cmd.Flags().GetInt("page-size")
+		sortFields, _ := cmd.Flags().GetString("sort")
+		desc, _ := cmd.Flags().GetBool("desc")
+		albumOnly, _ := cmd.Flags().GetBool("album-only")
+		singleOnly, _ := cmd.Flags().GetBool("single-only")
+		year, _ := cmd.Flags().GetInt("year")
+		titleFilter, _ := cmd.Flags().GetString("title")
+		pirateFlag, _ := cmd.Flags().GetBool("pirate")
+
+		return addFromMusicBrainz(artistName, pageSize, sortFields, desc, albumOnly, singleOnly, year, titleFilter, pirateFlag)
 	},
 }
 
-func searchArtists(query string) ([]Artist, error) {
-	url := fmt.Sprintf("https://musicbrainz.org/ws/2/artist?query=artist:%s&fmt=json", query)
-	resp, err := makeRequest(url)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	var result ArtistSearchResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, err
-	}
-	return result.Artists, nil
-}
-
-func searchReleaseGroups(artistID string) ([]ReleaseGroup, error) {
-	url := fmt.Sprintf("https://musicbrainz.org/ws/2/release-group?artist=%s&fmt=json", artistID)
-	resp, err := makeRequest(url)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	var result ReleaseGroupSearchResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, err
-	}
-	return result.ReleaseGroups, nil
-}
-
-func makeRequest(url string) (*http.Response, error) {
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("User-Agent", "musiccat/0.1.0 (robertjamespeacock@gmail.com)")
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("API error: %s", resp.Status)
-	}
-	time.Sleep(1 * time.Second) // Rate limit
-	return resp, nil
-}
-
-func selectItem[T any](prompt string, items []T) (T, error) {
-	var zero T
-	scanner := bufio.NewScanner(os.Stdin)
-	fmt.Print(prompt)
-	for scanner.Scan() {
-		input := strings.TrimSpace(scanner.Text())
-		num, err := strconv.Atoi(input)
-		if err != nil || num < 1 || num > len(items) {
-			fmt.Printf("Invalid selection. Enter a number between 1 and %d: ", len(items))
-			continue
-		}
-		return items[num-1], nil
-	}
-	return zero, scanner.Err()
-}
-
-func selectMultipleItems[T any](prompt string, items []T) ([]T, error) {
-	scanner := bufio.NewScanner(os.Stdin)
-	fmt.Print(prompt)
-	for scanner.Scan() {
-		input := strings.TrimSpace(scanner.Text())
-		parts := strings.Split(input, ",")
-		var selected []T
-		valid := true
-		for _, part := range parts {
-			part = strings.TrimSpace(part)
-			num, err := strconv.Atoi(part)
-			if err != nil || num < 1 || num > len(items) {
-				valid = false
-				break
-			}
-			selected = append(selected, items[num-1])
-		}
-		if !valid {
-			fmt.Printf("Invalid selection. Enter numbers between 1 and %d, comma-separated: ", len(items))
-			continue
-		}
-		return selected, nil
-	}
-	return nil, scanner.Err()
-}
-
-func parseYear(date string) *int {
-	if len(date) < 4 {
-		return nil
-	}
-	year, err := strconv.Atoi(date[:4])
-	if err != nil {
-		return nil
-	}
-	return &year
-}
-
-func addFromMusicBrainz(artistName string) error {
+func addFromMusicBrainz(artistName string, pageSize int, sortFields string, desc bool, albumOnly, singleOnly bool, year int, titleFilter string, pirateFlag bool) error {
 	// Load config for current format
 	cfg, err := config.LoadConfig()
 	if err != nil {
@@ -180,7 +62,7 @@ func addFromMusicBrainz(artistName string) error {
 	}
 
 	// Search artists
-	artists, err := searchArtists(artistName)
+	artists, err := musicbrainz.SearchArtists(artistName)
 	if err != nil {
 		return err
 	}
@@ -202,48 +84,96 @@ func addFromMusicBrainz(artistName string) error {
 		return err
 	}
 
-	// Search release groups
-	releaseGroups, err := searchReleaseGroups(selectedArtist.ID)
+	// Search release groups with filters applied via API query
+	allReleaseGroups, err := musicbrainz.SearchReleaseGroups(selectedArtist.ID, albumOnly, singleOnly, year, titleFilter, 0)
 	if err != nil {
 		return err
 	}
-	if len(releaseGroups) == 0 {
-		return fmt.Errorf("no releases found for artist '%s'", selectedArtist.Name)
+	if len(allReleaseGroups) == 0 {
+		return fmt.Errorf("no releases found for artist '%s' with specified filters", selectedArtist.Name)
 	}
 
-	// Display and select release groups (multiple)
-	fmt.Println("Releases found:")
-	for i, rg := range releaseGroups {
-		year := parseYear(rg.FirstReleaseDate)
-		yearStr := ""
-		if year != nil {
-			yearStr = fmt.Sprintf(" (%d)", *year)
+	// Apply sorting
+	sortFieldsSlice := parseSortFields(sortFields)
+	allReleaseGroups = SortReleaseGroups(allReleaseGroups, sortFieldsSlice, desc)
+
+	// Display and select releases, fetching more if needed
+	var selectedItems []SelectionItem
+	currentPage := 0
+	for {
+		items, needMore, _, err := selectReleasesWithPagination(allReleaseGroups, pageSize, cfg.CurrentFormat, albumOnly, singleOnly, year, titleFilter, currentPage)
+		if err != nil {
+			return err
 		}
-		typeStr := ""
-		if rg.PrimaryType != "" {
-			typeStr = " [" + rg.PrimaryType + "]"
+		if needMore {
+			// Fetch more results from API
+			fmt.Println("Fetching more results...")
+			offset := len(allReleaseGroups)
+			moreGroups, err := musicbrainz.SearchReleaseGroups(selectedArtist.ID, albumOnly, singleOnly, year, titleFilter, offset)
+			if err != nil {
+				fmt.Printf("Error fetching more results: %v\n", err)
+				continue
+			}
+			if len(moreGroups) == 0 {
+				fmt.Println("No more results available.")
+				continue
+			}
+			// Sort the new batch and append (don't re-sort everything to keep stable numbering)
+			moreGroups = SortReleaseGroups(moreGroups, sortFieldsSlice, desc)
+			allReleaseGroups = append(allReleaseGroups, moreGroups...)
+			// Continue from the first page of newly fetched results
+			currentPage = offset / pageSize
+			continue
 		}
-		fmt.Printf("%d. %s%s%s\n", i+1, rg.Title, yearStr, typeStr)
-	}
-	selectedRGs, err := selectMultipleItems("Select releases (numbers, comma-separated): ", releaseGroups)
-	if err != nil {
-		return err
+		selectedItems = items
+		break
 	}
 
 	// Insert each selected release and ownership
-	for _, rg := range selectedRGs {
+	totalAdded := 0
+	for _, item := range selectedItems {
+		rg := item.releaseGroup
 		var releaseYear *int = parseYear(rg.FirstReleaseDate)
 		releaseID, err := db.InsertRelease(database, selectedArtist.Name, rg.Title, releaseYear, &rg.ID)
 		if err != nil {
 			return err
 		}
-		_, err = db.InsertOwnership(database, releaseID, cfg.CurrentFormat, nil, nil, nil, nil, nil, nil)
-		if err != nil {
-			return err
+
+		// Insert multiple ownership entries if quantity > 1
+		for i := 0; i < item.quantity; i++ {
+			var notes *string
+
+			// Prompt for notes for each copy if quantity > 1
+			if item.quantity > 1 {
+				prompt := fmt.Sprintf("Notes for copy %d/%d of %s (optional): ", i+1, item.quantity, rg.Title)
+				noteStr := promptString(prompt)
+				if noteStr != "" {
+					notes = &noteStr
+				}
+			} else if item.notes != "" {
+				// Use existing notes for single copy
+				notes = &item.notes
+			}
+
+			// Auto-set format detail based on type and format category
+			var formatDetail *string
+			if rg.PrimaryType != "" {
+				detail := autoFormatDetail(cfg.CurrentFormat, rg.PrimaryType)
+				if detail != "" {
+					formatDetail = &detail
+				}
+			}
+
+			finalPirate := item.pirate || pirateFlag
+			_, err = db.InsertOwnership(database, releaseID, cfg.CurrentFormat, formatDetail, nil, nil, nil, notes, nil, item.promo, finalPirate)
+			if err != nil {
+				return err
+			}
+			totalAdded++
 		}
 	}
 
-	fmt.Printf("Added %d releases to collection.\n", len(selectedRGs))
+	fmt.Printf("Added %d ownership entries to collection.\n", totalAdded)
 	return nil
 }
 
@@ -264,8 +194,8 @@ func addManual() error {
 	artist := promptString("Artist: ")
 	title := promptString("Title: ")
 	manualYear := promptOptionalInt("Year (optional): ")
-	formatCategory := promptValidFormat("Format category (CD, Vinyl, Tape, Digital): ")
-	formatDetailInput := promptString("Format detail (optional): ")
+	formatCategory := promptValidFormat("Format category (CD, Vinyl, Cassette): ")
+	formatDetailInput := promptFormatDetail(formatCategory)
 	var formatDetail *string
 	if formatDetailInput != "" {
 		formatDetail = &formatDetailInput
@@ -278,7 +208,7 @@ func addManual() error {
 	}
 
 	// Insert ownership
-	_, err = db.InsertOwnership(database, id, formatCategory, formatDetail, nil, nil, nil, nil, nil)
+	_, err = db.InsertOwnership(database, id, formatCategory, formatDetail, nil, nil, nil, nil, nil, false, false)
 	if err != nil {
 		return err
 	}
@@ -287,39 +217,35 @@ func addManual() error {
 	return nil
 }
 
-func promptString(prompt string) string {
-	fmt.Print(prompt)
-	scanner := bufio.NewScanner(os.Stdin)
-	scanner.Scan()
-	return strings.TrimSpace(scanner.Text())
-}
-
-func promptOptionalInt(prompt string) *int {
-	input := promptString(prompt)
-	if input == "" {
-		return nil
-	}
-	num, err := strconv.Atoi(input)
-	if err != nil {
-		fmt.Println("Invalid number, ignoring")
-		return nil
-	}
-	return &num
-}
-
-func promptValidFormat(prompt string) string {
-	for {
-		input := promptString(prompt)
-		for _, f := range ValidFormats {
-			if strings.EqualFold(input, f) {
-				return f
-			}
+// autoFormatDetail determines the format detail based on format category and release type
+func autoFormatDetail(formatCategory, releaseType string) string {
+	upperFormat := strings.ToUpper(formatCategory)
+	
+	switch upperFormat {
+	case "CD", "CASSETTE":
+		// For CD and Cassette, auto-set to the release type
+		return releaseType
+	case "VINYL":
+		// For Vinyl, only auto-set to Album if it's an Album
+		// Singles require manual 7" or 12" specification
+		if releaseType == "Album" {
+			return "Album"
 		}
-		fmt.Printf("Invalid format. Valid: %s\n", strings.Join(ValidFormats, ", "))
+		return ""
+	default:
+		return ""
 	}
 }
 
 func init() {
 	addCmd.Flags().Bool("manual", false, "Manually enter release details")
+	addCmd.Flags().Int("page-size", 50, "Number of releases per page")
+	addCmd.Flags().String("sort", "", "Sort by field(s): type, year, title (comma-separated)")
+	addCmd.Flags().Bool("desc", false, "Reverse sort order")
+	addCmd.Flags().Bool("album-only", false, "Show only albums")
+	addCmd.Flags().Bool("single-only", false, "Show only singles")
+	addCmd.Flags().Int("year", 0, "Filter by specific release year")
+	addCmd.Flags().String("title", "", "Filter by release title (partial match)")
+	addCmd.Flags().Bool("pirate", false, "Mark releases as pirate copies")
 	rootCmd.AddCommand(addCmd)
 }
