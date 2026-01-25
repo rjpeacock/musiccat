@@ -10,10 +10,17 @@ import (
 )
 
 var listCmd = &cobra.Command{
-	Use:   "list",
+	Use:   "list [artist]",
 	Short: "List all stored releases",
+	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		artist, _ := cmd.Flags().GetString("artist")
+		
+		// If positional argument provided, use it as artist filter
+		if len(args) > 0 {
+			artist = args[0]
+		}
+		
 		format, _ := cmd.Flags().GetString("format")
 		promo, _ := cmd.Flags().GetBool("promo")
 		source, _ := cmd.Flags().GetString("source")
