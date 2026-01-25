@@ -183,7 +183,7 @@ func addManual() error {
 
 func init() {
 	addCmd.Flags().Bool("manual", false, "Manually enter release details")
-	addCmd.Flags().Int("page-size", 50, "Number of releases per page")
+	addCmd.Flags().Int("page-size", 100, "Number of releases per page")
 	addCmd.Flags().String("sort", "", "Sort by field(s): type, year, title (comma-separated)")
 	addCmd.Flags().Bool("desc", false, "Reverse sort order")
 	addCmd.Flags().Bool("album-only", false, "Show only albums")

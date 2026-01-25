@@ -152,7 +152,7 @@ func selectReleasesWithPagination(releaseGroups []musicbrainz.ReleaseGroup, page
 
 		for i := start; i < end; i++ {
 			rg := releaseGroups[i]
-			num := i - start + 1 // Display number relative to current page (1-based)
+		num := i + 1 // Display absolute number (1-based)
 			year := parseYear(rg.FirstReleaseDate)
 			yearStr := ""
 			if year != nil {
