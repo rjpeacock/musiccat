@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/spf13/cobra"
 	"musiccat/internal/db"
+
+	"github.com/spf13/cobra"
 )
 
 var listCmd = &cobra.Command{
