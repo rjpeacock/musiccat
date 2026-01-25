@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"database/sql"
 	"fmt"
 	"strconv"
 	"strings"
@@ -122,8 +123,8 @@ func updateInteractive(id int) error {
 	}
 
 	// Get current values
-	var currentNotes, currentSource, currentFormatDetail, currentPurchaseDate string
-	var currentCost float64
+	var currentNotes, currentSource, currentFormatDetail, currentPurchaseDate sql.NullString
+	var currentCost sql.NullFloat64
 	var currentPromo, currentPirate bool
 
 	err = database.QueryRow(`
@@ -137,21 +138,25 @@ func updateInteractive(id int) error {
 
 	// Display current values and prompt for new ones
 	fmt.Printf("Current values for ownership ID %d:\n", id)
-	fmt.Printf("Notes: %s\n", safeString(currentNotes))
-	fmt.Printf("Source: %s\n", safeString(currentSource))
-	fmt.Printf("Format Detail: %s\n", safeString(currentFormatDetail))
-	fmt.Printf("Purchase Date: %s\n", safeString(currentPurchaseDate))
-	fmt.Printf("Cost: %.2f\n", currentCost)
+	fmt.Printf("Notes: %s\n", safeNullString(currentNotes))
+	fmt.Printf("Source: %s\n", safeNullString(currentSource))
+	fmt.Printf("Format Detail: %s\n", safeNullString(currentFormatDetail))
+	fmt.Printf("Purchase Date: %s\n", safeNullString(currentPurchaseDate))
+	if currentCost.Valid {
+		fmt.Printf("Cost: %.2f\n", currentCost.Float64)
+	} else {
+		fmt.Printf("Cost: (empty)\n")
+	}
 	fmt.Printf("Promo: %t\n", currentPromo)
 	fmt.Printf("Pirate: %t\n", currentPirate)
 	fmt.Println()
 
 	// Prompt for updates
-	newNotes := promptOptionalString("Notes", currentNotes)
-	newSource := promptOptionalString("Source", currentSource)
-	newFormatDetail := promptOptionalString("Format detail", currentFormatDetail)
-	newPurchaseDate := promptOptionalString("Purchase date", currentPurchaseDate)
-	newCost := promptOptionalFloat("Cost", currentCost)
+	newNotes := promptOptionalString("Notes", nullStringValue(currentNotes))
+	newSource := promptOptionalString("Source", nullStringValue(currentSource))
+	newFormatDetail := promptOptionalString("Format detail", nullStringValue(currentFormatDetail))
+	newPurchaseDate := promptOptionalString("Purchase date", nullStringValue(currentPurchaseDate))
+	newCost := promptOptionalFloat("Cost", nullFloat64Value(currentCost))
 	newPromo := promptOptionalBool("Promo", currentPromo)
 	newPirate := promptOptionalBool("Pirate", currentPirate)
 
@@ -159,11 +164,28 @@ func updateInteractive(id int) error {
 	return db.UpdateOwnership(database, int64(id), newFormatDetail, newPurchaseDate, newCost, newSource, newNotes, nil, newPromo, newPirate)
 }
 
-func safeString(s string) string {
-	if s == "" {
-		return "(empty)"
+func safeNullString(ns sql.NullString) string {
+	if ns.Valid {
+		if ns.String == "" {
+			return "(empty)"
+		}
+		return ns.String
 	}
-	return s
+	return "(empty)"
+}
+
+func nullStringValue(ns sql.NullString) string {
+	if ns.Valid {
+		return ns.String
+	}
+	return ""
+}
+
+func nullFloat64Value(nf sql.NullFloat64) float64 {
+	if nf.Valid {
+		return nf.Float64
+	}
+	return 0
 }
 
 func init() {
