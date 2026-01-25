@@ -155,8 +155,17 @@ func addFromMusicBrainz(artistName string, pageSize int, sortFields string, desc
 				notes = &item.notes
 			}
 
+			// Auto-set format detail based on type and format category
+			var formatDetail *string
+			if rg.PrimaryType != "" {
+				detail := autoFormatDetail(cfg.CurrentFormat, rg.PrimaryType)
+				if detail != "" {
+					formatDetail = &detail
+				}
+			}
+
 			finalPirate := item.pirate || pirateFlag
-			_, err = db.InsertOwnership(database, releaseID, cfg.CurrentFormat, nil, nil, nil, nil, notes, nil, item.promo, finalPirate)
+			_, err = db.InsertOwnership(database, releaseID, cfg.CurrentFormat, formatDetail, nil, nil, nil, notes, nil, item.promo, finalPirate)
 			if err != nil {
 				return err
 			}
@@ -206,6 +215,26 @@ func addManual() error {
 
 	fmt.Println("Added release to collection.")
 	return nil
+}
+
+// autoFormatDetail determines the format detail based on format category and release type
+func autoFormatDetail(formatCategory, releaseType string) string {
+	upperFormat := strings.ToUpper(formatCategory)
+	
+	switch upperFormat {
+	case "CD", "CASSETTE":
+		// For CD and Cassette, auto-set to the release type
+		return releaseType
+	case "VINYL":
+		// For Vinyl, only auto-set to Album if it's an Album
+		// Singles require manual 7" or 12" specification
+		if releaseType == "Album" {
+			return "Album"
+		}
+		return ""
+	default:
+		return ""
+	}
 }
 
 func init() {
