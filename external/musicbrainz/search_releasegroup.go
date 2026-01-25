@@ -35,7 +35,6 @@ func SearchReleaseGroups(artistID string, albumOnly, singleOnly bool, afterYear,
 
 	// Request up to 100 release groups (MusicBrainz max)
 	reqURL := fmt.Sprintf("%s/release-group?query=%s&limit=100&fmt=json", baseURL, url.QueryEscape(query))
-	fmt.Printf("DEBUG: Query URL: %s\n", reqURL)
 	
 	resp, err := MakeRequest(reqURL)
 	if err != nil {

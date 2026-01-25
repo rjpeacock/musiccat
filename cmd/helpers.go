@@ -170,13 +170,7 @@ func selectReleasesWithPagination(releaseGroups []musicbrainz.ReleaseGroup, page
 			if rg.PrimaryType != "" {
 				typeStr = " [" + rg.PrimaryType + "]"
 			}
-			// Add inferred format detail in brackets
-			inferredDetail := inferFormatDetail(rg.PrimaryType, formatCategory)
-			if inferredDetail != "" {
-				fmt.Printf("%d. %s%s%s [%s]\n", num, rg.Title, yearStr, typeStr, inferredDetail)
-			} else {
-				fmt.Printf("%d. %s%s%s\n", num, rg.Title, yearStr, typeStr)
-			}
+			fmt.Printf("%d. %s%s%s\n", num, rg.Title, yearStr, typeStr)
 		}
 
 		var prompt string
