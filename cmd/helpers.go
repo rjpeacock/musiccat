@@ -7,6 +7,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"musiccat/external/musicbrainz"
 )
 
 func parseYear(date string) *int {
@@ -106,14 +108,14 @@ func selectMultipleItems[T any](prompt string, items []T) ([]T, error) {
 }
 
 type SelectionItem struct {
-	releaseGroup ReleaseGroup
+	releaseGroup musicbrainz.ReleaseGroup
 	promo        bool
 	pirate       bool
 	quantity     int
 	notes        string
 }
 
-func selectReleasesWithPagination(releaseGroups []ReleaseGroup, pageSize int, formatCategory string, albumOnly, singleOnly bool, afterYear, beforeYear int, titleFilter string) ([]SelectionItem, error) {
+func selectReleasesWithPagination(releaseGroups []musicbrainz.ReleaseGroup, pageSize int, formatCategory string, albumOnly, singleOnly bool, afterYear, beforeYear int, titleFilter string) ([]SelectionItem, error) {
 	const moreNumber = 99
 	currentPage := 0
 	for {
@@ -203,7 +205,7 @@ func selectReleasesWithPagination(releaseGroups []ReleaseGroup, pageSize int, fo
 	return nil, fmt.Errorf("no releases selected")
 }
 
-func parseSelections(input string, releaseGroups []ReleaseGroup, pageOffset int) ([]SelectionItem, error) {
+func parseSelections(input string, releaseGroups []musicbrainz.ReleaseGroup, pageOffset int) ([]SelectionItem, error) {
 	parts := strings.Split(input, ",")
 	var selected []SelectionItem
 
@@ -259,8 +261,8 @@ func parseSelections(input string, releaseGroups []ReleaseGroup, pageOffset int)
 // Primary: release type (Album → EP → Single → Other)
 // Secondary: first release year (ascending)
 // Tertiary: title (alphabetical)
-func SortReleaseGroups(releaseGroups []ReleaseGroup, sortFields []string, desc bool) []ReleaseGroup {
-	sorted := make([]ReleaseGroup, len(releaseGroups))
+func SortReleaseGroups(releaseGroups []musicbrainz.ReleaseGroup, sortFields []string, desc bool) []musicbrainz.ReleaseGroup {
+	sorted := make([]musicbrainz.ReleaseGroup, len(releaseGroups))
 	copy(sorted, releaseGroups)
 
 	sort.Slice(sorted, func(i, j int) bool {
@@ -277,7 +279,7 @@ func SortReleaseGroups(releaseGroups []ReleaseGroup, sortFields []string, desc b
 }
 
 // compareByDefaultOrder implements the default sorting logic
-func compareByDefaultOrder(a, b ReleaseGroup, desc bool) bool {
+func compareByDefaultOrder(a, b musicbrainz.ReleaseGroup, desc bool) bool {
 	// Primary: release type
 	typeOrder := map[string]int{
 		"Album":  1,
@@ -325,7 +327,7 @@ func compareByDefaultOrder(a, b ReleaseGroup, desc bool) bool {
 }
 
 // compareByCustomFields implements custom sorting based on specified fields
-func compareByCustomFields(a, b ReleaseGroup, sortFields []string, desc bool) bool {
+func compareByCustomFields(a, b musicbrainz.ReleaseGroup, sortFields []string, desc bool) bool {
 	for _, field := range sortFields {
 		var cmp int
 		switch field {
@@ -403,8 +405,8 @@ func parseSortFields(sortStr string) []string {
 }
 
 // FilterReleaseGroups applies filters to release groups
-func FilterReleaseGroups(releaseGroups []ReleaseGroup, albumOnly, singleOnly bool, afterYear, beforeYear *int, titleFilter string) []ReleaseGroup {
-	var filtered []ReleaseGroup
+func FilterReleaseGroups(releaseGroups []musicbrainz.ReleaseGroup, albumOnly, singleOnly bool, afterYear, beforeYear *int, titleFilter string) []musicbrainz.ReleaseGroup {
+	var filtered []musicbrainz.ReleaseGroup
 
 	for _, rg := range releaseGroups {
 		// Album/Single only filters

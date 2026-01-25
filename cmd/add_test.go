@@ -4,12 +4,14 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+
+	"musiccat/external/musicbrainz"
 )
 
 // TestMusicBrainzRequest verifies that MusicBrainz API requests work with IPv4 and retry logic
 func TestMusicBrainzRequest(t *testing.T) {
 	// Test searching for a well-known artist
-	artists, err := searchArtists("Radiohead")
+	artists, err := musicbrainz.SearchArtists("Radiohead")
 	if err != nil {
 		t.Fatalf("searchArtists failed: %v", err)
 	}
@@ -24,7 +26,7 @@ func TestMusicBrainzRequest(t *testing.T) {
 		if artist.Name == "Radiohead" {
 			found = true
 			// Test unfiltered release group search for this artist
-			releaseGroups, err := searchReleaseGroups(artist.ID)
+			releaseGroups, err := musicbrainz.SearchReleaseGroups(artist.ID)
 			if err != nil {
 				t.Fatalf("searchReleaseGroups failed: %v", err)
 			}
@@ -33,7 +35,7 @@ func TestMusicBrainzRequest(t *testing.T) {
 			}
 
 			// Test filtered release group search for this artist
-			filteredGroups, err := searchReleaseGroupsWithFilters(artist.ID, true, false, 1990, 2000, "")
+			filteredGroups, err := musicbrainz.SearchReleaseGroupsWithFilters(artist.ID, true, false, 1990, 2000, "")
 			if err != nil {
 				t.Fatalf("searchReleaseGroupsWithFilters failed: %v", err)
 			}
@@ -53,7 +55,7 @@ func TestMusicBrainzRequest(t *testing.T) {
 // TestTwoStageSearchWorkflow verifies the two-stage search process
 func TestTwoStageSearchWorkflow(t *testing.T) {
 	// Stage 1: Artist search (no filters applied)
-	artists, err := searchArtists("Beatles")
+	artists, err := musicbrainz.SearchArtists("Beatles")
 	if err != nil {
 		t.Fatalf("Stage 1 - artist search failed: %v", err)
 	}
@@ -63,7 +65,7 @@ func TestTwoStageSearchWorkflow(t *testing.T) {
 	}
 
 	// Find The Beatles specifically
-	var beatlesArtist *Artist
+	var beatlesArtist *musicbrainz.Artist
 	for _, artist := range artists {
 		if artist.Name == "The Beatles" {
 			beatlesArtist = &artist
@@ -82,7 +84,7 @@ func TestTwoStageSearchWorkflow(t *testing.T) {
 	beforeYear := 1970
 	titleFilter := ""
 
-	releaseGroups, err := searchReleaseGroupsWithFilters(
+	releaseGroups, err := musicbrainz.SearchReleaseGroupsWithFilters(
 		beatlesArtist.ID,
 		albumOnly,
 		singleOnly,
@@ -113,12 +115,12 @@ func TestTwoStageSearchWorkflow(t *testing.T) {
 
 // TestFilterCombinations tests various filter combinations
 func TestFilterCombinations(t *testing.T) {
-	artists, err := searchArtists("Radiohead")
+	artists, err := musicbrainz.SearchArtists("Radiohead")
 	if err != nil {
 		t.Fatalf("Failed to find Radiohead: %v", err)
 	}
 
-	var radiohead *Artist
+	var radiohead *musicbrainz.Artist
 	for _, artist := range artists {
 		if artist.Name == "Radiohead" {
 			radiohead = &artist
@@ -131,7 +133,7 @@ func TestFilterCombinations(t *testing.T) {
 	}
 
 	// Test album-only filter
-	albums, err := searchReleaseGroupsWithFilters(radiohead.ID, true, false, 0, 0, "")
+	albums, err := musicbrainz.SearchReleaseGroupsWithFilters(radiohead.ID, true, false, 0, 0, "")
 	if err != nil {
 		t.Fatalf("Album filter failed: %v", err)
 	}
@@ -142,7 +144,7 @@ func TestFilterCombinations(t *testing.T) {
 	}
 
 	// Test single-only filter
-	singles, err := searchReleaseGroupsWithFilters(radiohead.ID, false, true, 0, 0, "")
+	singles, err := musicbrainz.SearchReleaseGroupsWithFilters(radiohead.ID, false, true, 0, 0, "")
 	if err != nil {
 		t.Fatalf("Single filter failed: %v", err)
 	}
@@ -153,7 +155,7 @@ func TestFilterCombinations(t *testing.T) {
 	}
 
 	// Test year filter
-	after2000, err := searchReleaseGroupsWithFilters(radiohead.ID, false, false, 2000, 0, "")
+	after2000, err := musicbrainz.SearchReleaseGroupsWithFilters(radiohead.ID, false, false, 2000, 0, "")
 	if err != nil {
 		t.Fatalf("Year filter failed: %v", err)
 	}
@@ -165,7 +167,7 @@ func TestFilterCombinations(t *testing.T) {
 	}
 
 	// Test title filter
-	titleFilter, err := searchReleaseGroupsWithFilters(radiohead.ID, false, false, 0, 0, "Paranoid")
+	titleFilter, err := musicbrainz.SearchReleaseGroupsWithFilters(radiohead.ID, false, false, 0, 0, "Paranoid")
 	if err != nil {
 		t.Fatalf("Title filter failed: %v", err)
 	}
@@ -178,9 +180,9 @@ func TestFilterCombinations(t *testing.T) {
 
 // TestMusicBrainzClientIPv4 verifies the HTTP client uses IPv4
 func TestMusicBrainzClientIPv4(t *testing.T) {
-	client := createMusicBrainzClient()
+	client := musicbrainz.CreateClient()
 	if client == nil {
-		t.Fatal("createMusicBrainzClient returned nil")
+		t.Fatal("CreateClient returned nil")
 	}
 
 	if client.Timeout == 0 {

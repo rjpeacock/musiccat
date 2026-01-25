@@ -1,41 +1,15 @@
 package cmd
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
-	"net"
-	"net/http"
-	"net/url"
 	"strings"
-	"time"
 
+	"musiccat/external/musicbrainz"
 	"musiccat/internal/config"
 	"musiccat/internal/db"
 
 	"github.com/spf13/cobra"
 )
-
-type ArtistSearchResponse struct {
-	Artists []Artist `json:"artists"`
-}
-
-type Artist struct {
-	ID             string `json:"id"`
-	Name           string `json:"name"`
-	Disambiguation string `json:"disambiguation"`
-}
-
-type ReleaseGroupSearchResponse struct {
-	ReleaseGroups []ReleaseGroup `json:"release-groups"`
-}
-
-type ReleaseGroup struct {
-	ID               string `json:"id"`
-	Title            string `json:"title"`
-	FirstReleaseDate string `json:"first-release-date"`
-	PrimaryType      string `json:"primary-type"`
-}
 
 var addCmd = &cobra.Command{
 	Use:   `add "<artist name>"`,
@@ -89,7 +63,7 @@ func addFromMusicBrainz(artistName string, pageSize int, sortFields string, desc
 	}
 
 	// Search artists
-	artists, err := searchArtists(artistName)
+	artists, err := musicbrainz.SearchArtists(artistName)
 	if err != nil {
 		return err
 	}
@@ -112,7 +86,7 @@ func addFromMusicBrainz(artistName string, pageSize int, sortFields string, desc
 	}
 
 	// Search release groups with filters applied via API query
-	releaseGroups, err := searchReleaseGroupsWithFilters(selectedArtist.ID, albumOnly, singleOnly, afterYear, beforeYear, titleFilter)
+	releaseGroups, err := musicbrainz.SearchReleaseGroupsWithFilters(selectedArtist.ID, albumOnly, singleOnly, afterYear, beforeYear, titleFilter)
 	if err != nil {
 		return err
 	}
@@ -206,154 +180,6 @@ func addManual() error {
 
 	fmt.Println("Added release to collection.")
 	return nil
-}
-
-func searchArtists(query string) ([]Artist, error) {
-	encodedQuery := url.QueryEscape(query)
-	reqURL := fmt.Sprintf("https://musicbrainz.org/ws/2/artist?query=artist:%s&fmt=json", encodedQuery)
-	resp, err := makeRequest(reqURL)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	var result ArtistSearchResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, err
-	}
-	return result.Artists, nil
-}
-
-func searchReleaseGroups(artistID string) ([]ReleaseGroup, error) {
-	// Simple artist search without any filters
-	query := fmt.Sprintf("artist:%s", artistID)
-	url := fmt.Sprintf("https://musicbrainz.org/ws/2/release-group?query=%s&limit=100&fmt=json", url.QueryEscape(query))
-	resp, err := makeRequest(url)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	var result ReleaseGroupSearchResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, err
-	}
-	return result.ReleaseGroups, nil
-}
-
-func searchReleaseGroupsWithFilters(artistID string, albumOnly, singleOnly bool, afterYear, beforeYear int, titleFilter string) ([]ReleaseGroup, error) {
-	// Build query with filters
-	query := fmt.Sprintf("artist:%s", artistID)
-
-	// Add type filters
-	if albumOnly && !singleOnly {
-		query += " AND type:album"
-	} else if singleOnly && !albumOnly {
-		query += " AND type:single"
-	}
-
-	// Add year filters
-	if afterYear > 0 {
-		query += fmt.Sprintf(" AND date:[%d-01-01 TO]", afterYear)
-	}
-	if beforeYear > 0 {
-		if afterYear > 0 {
-			query = strings.TrimSuffix(query, " TO]")
-			query += fmt.Sprintf(" %d-12-31]", beforeYear-1)
-		} else {
-			query += fmt.Sprintf(" AND date:[TO %d-12-31]", beforeYear-1)
-		}
-	}
-
-	// Add title filter
-	if titleFilter != "" {
-		query += fmt.Sprintf(" AND release:%s", titleFilter)
-	}
-
-	// Request up to 100 release groups (MusicBrainz max)
-	url := fmt.Sprintf("https://musicbrainz.org/ws/2/release-group?query=%s&limit=100&fmt=json", url.QueryEscape(query))
-	resp, err := makeRequest(url)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	var result ReleaseGroupSearchResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, err
-	}
-	return result.ReleaseGroups, nil
-}
-
-// createMusicBrainzClient creates an HTTP client configured for IPv4-only connections
-func createMusicBrainzClient() *http.Client {
-	dialer := &net.Dialer{
-		Timeout:   30 * time.Second,
-		KeepAlive: 30 * time.Second,
-	}
-
-	transport := &http.Transport{
-		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-			// Force IPv4 by replacing "tcp" with "tcp4"
-			return dialer.DialContext(ctx, "tcp4", addr)
-		},
-		ForceAttemptHTTP2:     true,
-		MaxIdleConns:          10,
-		IdleConnTimeout:       90 * time.Second,
-		TLSHandshakeTimeout:   10 * time.Second,
-		ExpectContinueTimeout: 1 * time.Second,
-	}
-
-	return &http.Client{
-		Transport: transport,
-		Timeout:   30 * time.Second,
-	}
-}
-
-func makeRequest(url string) (*http.Response, error) {
-	const maxRetries = 3
-	var lastErr error
-
-	client := createMusicBrainzClient()
-
-	for attempt := 1; attempt <= maxRetries; attempt++ {
-		req, err := http.NewRequest("GET", url, nil)
-		if err != nil {
-			return nil, err
-		}
-		req.Header.Set("User-Agent", "musiccat/0.1 (robertjamespeacock@gmail.com)")
-
-		resp, err := client.Do(req)
-		if err != nil {
-			lastErr = err
-			if attempt < maxRetries {
-				// Exponential backoff: 1s, 2s
-				waitTime := time.Duration(attempt) * time.Second
-				fmt.Printf("Request failed (attempt %d/%d), retrying in %v...\n", attempt, maxRetries, waitTime)
-				time.Sleep(waitTime)
-				continue
-			}
-			return nil, fmt.Errorf("request failed after %d attempts: %w", maxRetries, err)
-		}
-
-		if resp.StatusCode != http.StatusOK {
-			resp.Body.Close()
-			lastErr = fmt.Errorf("API error: %s", resp.Status)
-			if attempt < maxRetries {
-				waitTime := time.Duration(attempt) * time.Second
-				fmt.Printf("API returned %s (attempt %d/%d), retrying in %v...\n", resp.Status, attempt, maxRetries, waitTime)
-				time.Sleep(waitTime)
-				continue
-			}
-			return nil, lastErr
-		}
-
-		// Success - apply rate limiting before returning
-		time.Sleep(1 * time.Second)
-		return resp, nil
-	}
-
-	return nil, lastErr
 }
 
 func init() {
