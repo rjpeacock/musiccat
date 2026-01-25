@@ -116,7 +116,6 @@ type SelectionItem struct {
 }
 
 func selectReleasesWithPagination(releaseGroups []musicbrainz.ReleaseGroup, pageSize int, formatCategory string, albumOnly, singleOnly bool, year int, titleFilter string) ([]SelectionItem, error) {
-	const moreNumber = 99
 	currentPage := 0
 	for {
 		start := currentPage * pageSize
@@ -170,10 +169,10 @@ func selectReleasesWithPagination(releaseGroups []musicbrainz.ReleaseGroup, page
 		if isLastPage {
 			prompt = "Select releases (numbers, comma-separated, suffix 'p' for promo, suffix '(n)' for quantity): "
 		} else {
-			prompt = fmt.Sprintf("Select releases (numbers, comma-separated, suffix 'p' for promo, suffix '(n)' for quantity, %d for more): ", moreNumber)
+			prompt = "Select releases (numbers, comma-separated, suffix 'p' for promo, suffix '(n)' for quantity, 00 for more): "
 		}
 		input := promptString(prompt)
-		if input == strconv.Itoa(moreNumber) {
+		if input == "00" {
 			if isLastPage {
 				fmt.Println("Already on last page.")
 				continue
@@ -181,7 +180,7 @@ func selectReleasesWithPagination(releaseGroups []musicbrainz.ReleaseGroup, page
 			currentPage++
 			continue
 		}
-		// Parse selections with page offset
+			// Parse selections with page offset
 		selectedItems, err := parseSelections(input, releaseGroups, start)
 		if err != nil {
 			fmt.Println("Invalid input:", err)
