@@ -7,27 +7,9 @@ import (
 	"strings"
 )
 
-// SearchReleaseGroups searches for release groups by artist ID on MusicBrainz
-func SearchReleaseGroups(artistID string) ([]ReleaseGroup, error) {
-	// Simple artist search without any filters
-	query := fmt.Sprintf("artist:%s", artistID)
-	reqURL := fmt.Sprintf("%s/release-group?query=%s&limit=100&fmt=json", baseURL, url.QueryEscape(query))
-	
-	resp, err := MakeRequest(reqURL)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	var result ReleaseGroupSearchResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, err
-	}
-	return result.ReleaseGroups, nil
-}
-
-// SearchReleaseGroupsWithFilters searches for release groups with various filters applied
-func SearchReleaseGroupsWithFilters(artistID string, albumOnly, singleOnly bool, afterYear, beforeYear int, titleFilter string) ([]ReleaseGroup, error) {
+// SearchReleaseGroups searches for release groups by artist ID on MusicBrainz.
+// All filter parameters are optional - pass zero values to skip filtering.
+func SearchReleaseGroups(artistID string, albumOnly, singleOnly bool, afterYear, beforeYear int, titleFilter string) ([]ReleaseGroup, error) {
 	// Build query with filters
 	query := fmt.Sprintf("artist:%s", artistID)
 

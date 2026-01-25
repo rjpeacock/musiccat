@@ -26,7 +26,7 @@ func TestMusicBrainzRequest(t *testing.T) {
 		if artist.Name == "Radiohead" {
 			found = true
 			// Test unfiltered release group search for this artist
-			releaseGroups, err := musicbrainz.SearchReleaseGroups(artist.ID)
+			releaseGroups, err := musicbrainz.SearchReleaseGroups(artist.ID, false, false, 0, 0, "")
 			if err != nil {
 				t.Fatalf("searchReleaseGroups failed: %v", err)
 			}
@@ -35,7 +35,7 @@ func TestMusicBrainzRequest(t *testing.T) {
 			}
 
 			// Test filtered release group search for this artist
-			filteredGroups, err := musicbrainz.SearchReleaseGroupsWithFilters(artist.ID, true, false, 1990, 2000, "")
+			filteredGroups, err := musicbrainz.SearchReleaseGroups(artist.ID, true, false, 1990, 2000, "")
 			if err != nil {
 				t.Fatalf("searchReleaseGroupsWithFilters failed: %v", err)
 			}
@@ -84,7 +84,7 @@ func TestTwoStageSearchWorkflow(t *testing.T) {
 	beforeYear := 1970
 	titleFilter := ""
 
-	releaseGroups, err := musicbrainz.SearchReleaseGroupsWithFilters(
+	releaseGroups, err := musicbrainz.SearchReleaseGroups(
 		beatlesArtist.ID,
 		albumOnly,
 		singleOnly,
@@ -133,7 +133,7 @@ func TestFilterCombinations(t *testing.T) {
 	}
 
 	// Test album-only filter
-	albums, err := musicbrainz.SearchReleaseGroupsWithFilters(radiohead.ID, true, false, 0, 0, "")
+	albums, err := musicbrainz.SearchReleaseGroups(radiohead.ID, true, false, 0, 0, "")
 	if err != nil {
 		t.Fatalf("Album filter failed: %v", err)
 	}
@@ -144,7 +144,7 @@ func TestFilterCombinations(t *testing.T) {
 	}
 
 	// Test single-only filter
-	singles, err := musicbrainz.SearchReleaseGroupsWithFilters(radiohead.ID, false, true, 0, 0, "")
+	singles, err := musicbrainz.SearchReleaseGroups(radiohead.ID, false, true, 0, 0, "")
 	if err != nil {
 		t.Fatalf("Single filter failed: %v", err)
 	}
@@ -155,7 +155,7 @@ func TestFilterCombinations(t *testing.T) {
 	}
 
 	// Test year filter
-	after2000, err := musicbrainz.SearchReleaseGroupsWithFilters(radiohead.ID, false, false, 2000, 0, "")
+	after2000, err := musicbrainz.SearchReleaseGroups(radiohead.ID, false, false, 2000, 0, "")
 	if err != nil {
 		t.Fatalf("Year filter failed: %v", err)
 	}
@@ -167,7 +167,7 @@ func TestFilterCombinations(t *testing.T) {
 	}
 
 	// Test title filter
-	titleFilter, err := musicbrainz.SearchReleaseGroupsWithFilters(radiohead.ID, false, false, 0, 0, "Paranoid")
+	titleFilter, err := musicbrainz.SearchReleaseGroups(radiohead.ID, false, false, 0, 0, "Paranoid")
 	if err != nil {
 		t.Fatalf("Title filter failed: %v", err)
 	}

@@ -86,7 +86,7 @@ func addFromMusicBrainz(artistName string, pageSize int, sortFields string, desc
 	}
 
 	// Search release groups with filters applied via API query
-	releaseGroups, err := musicbrainz.SearchReleaseGroupsWithFilters(selectedArtist.ID, albumOnly, singleOnly, afterYear, beforeYear, titleFilter)
+	releaseGroups, err := musicbrainz.SearchReleaseGroups(selectedArtist.ID, albumOnly, singleOnly, afterYear, beforeYear, titleFilter)
 	if err != nil {
 		return err
 	}
