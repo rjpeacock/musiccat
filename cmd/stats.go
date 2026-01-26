@@ -89,16 +89,17 @@ var statsCmd = &cobra.Command{
 
 		fmt.Printf("\nTotal spend: $%.2f\n", totalSpend)
 
-		// Top 10 artists by items owned
+		// Top 10 artists by weighted points (3 pts per album, 1 pt per other item)
 		artistRows, err := database.Query(`
 			SELECT r.artist, 
+			       SUM(CASE WHEN o.format_detail = 'Album' THEN 3 ELSE 1 END) as points,
 			       COUNT(*) as total,
 			       SUM(CASE WHEN o.format_detail = 'Album' THEN 1 ELSE 0 END) as albums,
 			       SUM(CASE WHEN o.format_detail = 'Single' THEN 1 ELSE 0 END) as singles
 			FROM ownership o
 			JOIN releases r ON o.release_id = r.id
 			GROUP BY r.artist
-			ORDER BY total DESC
+			ORDER BY points DESC
 			LIMIT 10
 		`)
 		if err != nil {
@@ -106,15 +107,15 @@ var statsCmd = &cobra.Command{
 		}
 		defer artistRows.Close()
 
-		fmt.Println("\nTop 10 artists by items owned:")
+		fmt.Println("\nTop 10 artists by points (3 pts/album, 1 pt/other):")
 		for artistRows.Next() {
 			var artist string
-			var total, albums, singles int
-			err := artistRows.Scan(&artist, &total, &albums, &singles)
+			var points, total, albums, singles int
+			err := artistRows.Scan(&artist, &points, &total, &albums, &singles)
 			if err != nil {
 				return err
 			}
-			fmt.Printf("  %s: %d total (%d albums, %d singles)\n", artist, total, albums, singles)
+			fmt.Printf("  %s: %d pts - %d total (%d albums, %d singles)\n", artist, points, total, albums, singles)
 		}
 
 		return nil
