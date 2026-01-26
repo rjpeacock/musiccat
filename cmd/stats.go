@@ -87,7 +87,7 @@ var statsCmd = &cobra.Command{
 			return err
 		}
 
-		fmt.Printf("\nTotal spend: $%.2f\n", totalSpend)
+		fmt.Printf("\nTotal spend: £%.2f\n", totalSpend)
 
 		// Top 10 artists by weighted points (3 pts per album, 1 pt per other item)
 		artistRows, err := database.Query(`
