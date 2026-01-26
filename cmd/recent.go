@@ -38,7 +38,7 @@ var recentCmd = &cobra.Command{
 		}
 
 		// Query
-		query := `SELECT o.id, r.artist, r.title, o.format_category, o.purchase_date, o.format_detail, o.notes FROM ownership o JOIN releases r ON o.release_id = r.id`
+		query := `SELECT o.id, r.artist, r.title, o.format_category, o.acquired_date, o.format_detail, o.notes FROM ownership o JOIN releases r ON o.release_id = r.id`
 		var queryArgs []interface{}
 		if format != "" {
 			query += " WHERE o.format_category = ?"

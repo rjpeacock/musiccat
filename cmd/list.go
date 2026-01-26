@@ -43,7 +43,7 @@ var listCmd = &cobra.Command{
 		}
 
 		// Query - show individual ownership entries with IDs
-		query := `SELECT o.id, r.artist, r.title, r.year, o.format_category, o.format_detail, o.is_promo, o.is_pirate, o.notes
+		query := `SELECT o.id, r.artist, r.title, r.year, o.format_category, o.format_detail, o.is_promo, o.is_pirate, o.acquired_date, o.notes
 			FROM ownership o
 			JOIN releases r ON o.release_id = r.id`
 		var queryArgs []interface{}
@@ -114,19 +114,19 @@ var listCmd = &cobra.Command{
 		}
 		defer rows.Close()
 
-		fmt.Printf("%-3s %-20s %-30s %-6s %-10s %-10s %-5s %-5s %-10s %-30s\n", "ID", "Artist", "Title", "Year", "Format", "Detail", "Promo", "Pirate", "Importance", "Notes")
-		fmt.Println(strings.Repeat("-", 135))
+		fmt.Printf("%-3s %-20s %-30s %-6s %-10s %-10s %-5s %-5s %-12s %-10s %-30s\n", "ID", "Artist", "Title", "Year", "Format", "Detail", "Promo", "Pirate", "Acquired", "Importance", "Notes")
+		fmt.Println(strings.Repeat("-", 150))
 
 		for rows.Next() {
 			var id int
 			var artist, title, formatCategory string
 			var year *int
-			var formatDetail, notes *string
+			var formatDetail, acquiredDate, notes *string
 			var isPromo, isPirate bool
 			var yearNull sql.NullInt32
-			var formatDetailNull, notesNull sql.NullString
+			var formatDetailNull, acquiredDateNull, notesNull sql.NullString
 
-			err := rows.Scan(&id, &artist, &title, &yearNull, &formatCategory, &formatDetailNull, &isPromo, &isPirate, &notesNull)
+			err := rows.Scan(&id, &artist, &title, &yearNull, &formatCategory, &formatDetailNull, &isPromo, &isPirate, &acquiredDateNull, &notesNull)
 			if err != nil {
 				return err
 			}
@@ -141,6 +141,11 @@ var listCmd = &cobra.Command{
 				formatDetail = &fd
 			}
 
+			if acquiredDateNull.Valid {
+				ad := acquiredDateNull.String
+				acquiredDate = &ad
+			}
+
 			if notesNull.Valid {
 				n := notesNull.String
 				notes = &n
@@ -149,6 +154,11 @@ var listCmd = &cobra.Command{
 			yearStr := ""
 			if year != nil {
 				yearStr = fmt.Sprintf("%d", *year)
+			}
+
+			acquiredStr := ""
+			if acquiredDate != nil {
+				acquiredStr = *acquiredDate
 			}
 
 			detailStr := ""
@@ -175,8 +185,8 @@ var listCmd = &cobra.Command{
 			importance := helpers.DeriveImportance(isPirate, isPromo, formatDetail)
 			importanceStr := strings.Repeat("*", importance)
 
-			fmt.Printf("%-3d %-20.20s %-30.30s %-6s %-10s %-10.10s %-5s %-5s %-10s %-30.30s\n",
-				id, artist, title, yearStr, formatCategory, detailStr, promoStr, pirateStr, importanceStr, notesStr)
+			fmt.Printf("%-3d %-20.20s %-30.30s %-6s %-10s %-10.10s %-5s %-5s %-12.12s %-10s %-30.30s\n",
+				id, artist, title, yearStr, formatCategory, detailStr, promoStr, pirateStr, acquiredStr, importanceStr, notesStr)
 		}
 		return rows.Err()
 	},

@@ -16,7 +16,7 @@ var updateCmd = &cobra.Command{
 	Use:   "update <id>",
 	Short: "Update ownership details (interactive by default)",
 	Long: `Update ownership details interactively or using flags.
-Editable fields: purchase_date, cost, source, notes, is_promo, is_pirate.
+Editable fields: acquired_date, cost, source, notes, is_promo, is_pirate.
 Non-editable fields: artist, title, year, format, MusicBrainz ID.
 Interactive mode is used when no flags are provided.`,
 	Args: cobra.ExactArgs(1),
@@ -28,7 +28,7 @@ Interactive mode is used when no flags are provided.`,
 		}
 
 		cost, _ := cmd.Flags().GetFloat64("cost")
-		purchaseDate, _ := cmd.Flags().GetString("purchase-date")
+		acquiredDate, _ := cmd.Flags().GetString("acquired-date")
 		source, _ := cmd.Flags().GetString("source")
 		promo, _ := cmd.Flags().GetBool("promo")
 		pirate, _ := cmd.Flags().GetBool("pirate")
@@ -36,7 +36,7 @@ Interactive mode is used when no flags are provided.`,
 		formatDetail, _ := cmd.Flags().GetString("format-detail")
 
 		// Check if any flags were provided
-		hasFlags := cmd.Flags().Changed("cost") || cmd.Flags().Changed("purchase-date") ||
+		hasFlags := cmd.Flags().Changed("cost") || cmd.Flags().Changed("acquired-date") ||
 			cmd.Flags().Changed("source") || cmd.Flags().Changed("promo") || cmd.Flags().Changed("pirate") || cmd.Flags().Changed("notes") || cmd.Flags().Changed("format-detail")
 		if !hasFlags {
 			// Default to interactive mode if no flags provided
@@ -71,9 +71,9 @@ Interactive mode is used when no flags are provided.`,
 			sets = append(sets, " cost = ?")
 			updateArgs = append(updateArgs, cost)
 		}
-		if cmd.Flags().Changed("purchase-date") {
-			sets = append(sets, " purchase_date = ?")
-			updateArgs = append(updateArgs, purchaseDate)
+		if cmd.Flags().Changed("acquired-date") {
+			sets = append(sets, " acquired_date = ?")
+			updateArgs = append(updateArgs, acquiredDate)
 		}
 		if cmd.Flags().Changed("source") {
 			sets = append(sets, " source = ?")
@@ -124,14 +124,14 @@ func updateInteractive(id int) error {
 	}
 
 	// Get current values
-	var currentNotes, currentSource, currentFormatDetail, currentPurchaseDate sql.NullString
+	var currentNotes, currentSource, currentFormatDetail, currentAcquiredDate sql.NullString
 	var currentCost sql.NullFloat64
 	var currentPromo, currentPirate bool
 
 	err = database.QueryRow(`
-		SELECT notes, source, format_detail, purchase_date, cost, is_promo, is_pirate 
+		SELECT notes, source, format_detail, acquired_date, cost, is_promo, is_pirate 
 		FROM ownership WHERE id = ?`, id).Scan(
-		&currentNotes, &currentSource, &currentFormatDetail, &currentPurchaseDate,
+		&currentNotes, &currentSource, &currentFormatDetail, &currentAcquiredDate,
 		&currentCost, &currentPromo, &currentPirate)
 	if err != nil {
 		return fmt.Errorf("ownership with ID %d not found", id)
@@ -142,7 +142,7 @@ func updateInteractive(id int) error {
 	fmt.Printf("Notes: %s\n", safeNullString(currentNotes))
 	fmt.Printf("Source: %s\n", safeNullString(currentSource))
 	fmt.Printf("Format Detail: %s\n", safeNullString(currentFormatDetail))
-	fmt.Printf("Purchase Date: %s\n", safeNullString(currentPurchaseDate))
+	fmt.Printf("Acquired Date: %s\n", safeNullString(currentAcquiredDate))
 	if currentCost.Valid {
 		fmt.Printf("Cost: %.2f\n", currentCost.Float64)
 	} else {
@@ -156,13 +156,13 @@ func updateInteractive(id int) error {
 	newNotes := helpers.PromptOptionalString("Notes", nullStringValue(currentNotes))
 	newSource := helpers.PromptOptionalString("Source", nullStringValue(currentSource))
 	newFormatDetail := helpers.PromptOptionalString("Format detail", nullStringValue(currentFormatDetail))
-	newPurchaseDate := helpers.PromptOptionalString("Purchase date", nullStringValue(currentPurchaseDate))
+	newAcquiredDate := helpers.PromptOptionalString("Acquired date", nullStringValue(currentAcquiredDate))
 	newCost := helpers.PromptOptionalFloat("Cost", nullFloat64Value(currentCost))
 	newPromo := helpers.PromptOptionalBool("Promo", currentPromo)
 	newPirate := helpers.PromptOptionalBool("Pirate", currentPirate)
 
 	// Apply updates using the new UpdateOwnership function
-	return db.UpdateOwnership(database, int64(id), newFormatDetail, newPurchaseDate, newCost, newSource, newNotes, nil, newPromo, newPirate)
+	return db.UpdateOwnership(database, int64(id), newFormatDetail, newAcquiredDate, newCost, newSource, newNotes, nil, newPromo, newPirate)
 }
 
 func safeNullString(ns sql.NullString) string {
@@ -191,7 +191,7 @@ func nullFloat64Value(nf sql.NullFloat64) float64 {
 
 func init() {
 	updateCmd.Flags().Float64("cost", 0, "Update cost (use 0 to clear)")
-	updateCmd.Flags().String("purchase-date", "", "Update purchase date (use empty string to clear)")
+	updateCmd.Flags().String("acquired-date", "", "Update acquired date (use empty string to clear)")
 	updateCmd.Flags().String("source", "", "Update source (use empty string to clear)")
 	updateCmd.Flags().Bool("promo", false, "Update promo status")
 	updateCmd.Flags().Bool("pirate", false, "Update pirate status")
