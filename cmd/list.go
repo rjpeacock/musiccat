@@ -113,8 +113,8 @@ var listCmd = &cobra.Command{
 		}
 		defer rows.Close()
 
-		fmt.Printf("%-3s %-20s %-30s %-6s %-10s %-10s %-5s %-5s %-30s\n", "ID", "Artist", "Title", "Year", "Format", "Detail", "Promo", "Pirate", "Notes")
-		fmt.Println(strings.Repeat("-", 125))
+		fmt.Printf("%-3s %-20s %-30s %-6s %-10s %-10s %-5s %-5s %-10s %-30s\n", "ID", "Artist", "Title", "Year", "Format", "Detail", "Promo", "Pirate", "Importance", "Notes")
+		fmt.Println(strings.Repeat("-", 135))
 
 		for rows.Next() {
 			var id int
@@ -170,8 +170,12 @@ var listCmd = &cobra.Command{
 				notesStr = *notes
 			}
 
-			fmt.Printf("%-3d %-20.20s %-30.30s %-6s %-10s %-10.10s %-5s %-5s %-30.30s\n",
-				id, artist, title, yearStr, formatCategory, detailStr, promoStr, pirateStr, notesStr)
+			// Calculate importance
+			importance := deriveImportance(isPirate, isPromo, formatDetail)
+			importanceStr := strings.Repeat("*", importance)
+
+			fmt.Printf("%-3d %-20.20s %-30.30s %-6s %-10s %-10.10s %-5s %-5s %-10s %-30.30s\n",
+				id, artist, title, yearStr, formatCategory, detailStr, promoStr, pirateStr, importanceStr, notesStr)
 		}
 		return rows.Err()
 	},
