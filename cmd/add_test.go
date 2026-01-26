@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"musiccat/cmd/helpers"
 	"musiccat/external/musicbrainz"
 )
 
@@ -101,7 +102,7 @@ func TestTwoStageSearchWorkflow(t *testing.T) {
 			t.Errorf("Stage 2 - Expected album type, got '%s' for '%s'", rg.PrimaryType, rg.Title)
 		}
 
-		releaseYear := parseYear(rg.FirstReleaseDate)
+		releaseYear := helpers.ParseYear(rg.FirstReleaseDate)
 		if releaseYear != nil && *releaseYear != 1967 {
 			t.Errorf("Stage 2 - Expected year 1967, got %d for '%s'", *releaseYear, rg.Title)
 		}
@@ -159,7 +160,7 @@ func TestFilterCombinations(t *testing.T) {
 		t.Fatalf("Year filter failed: %v", err)
 	}
 	for _, rg := range year2007 {
-		releaseYear := parseYear(rg.FirstReleaseDate)
+		releaseYear := helpers.ParseYear(rg.FirstReleaseDate)
 		if releaseYear != nil && *releaseYear != 2007 {
 			t.Errorf("Expected year 2007, got %d for '%s'", *releaseYear, rg.Title)
 		}

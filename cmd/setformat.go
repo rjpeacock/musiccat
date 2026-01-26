@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"musiccat/cmd/helpers"
 	"musiccat/internal/config"
 
 	"github.com/spf13/cobra"
@@ -16,14 +17,14 @@ var setFormatCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		input := strings.ToLower(args[0])
 		var format string
-		for _, f := range ValidFormats {
+		for _, f := range helpers.ValidFormats {
 			if strings.ToLower(f) == input {
 				format = f
 				break
 			}
 		}
 		if format == "" {
-			return fmt.Errorf("invalid format: %s. Valid formats: %s", args[0], strings.Join(ValidFormats, ", "))
+			return fmt.Errorf("invalid format: %s. Valid formats: %s", args[0], strings.Join(helpers.ValidFormats, ", "))
 		}
 
 		cfg, err := config.LoadConfig()

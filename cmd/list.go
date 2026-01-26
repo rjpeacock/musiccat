@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"musiccat/cmd/helpers"
 	"musiccat/internal/db"
 
 	"github.com/spf13/cobra"
@@ -171,7 +172,7 @@ var listCmd = &cobra.Command{
 			}
 
 			// Calculate importance
-			importance := deriveImportance(isPirate, isPromo, formatDetail)
+			importance := helpers.DeriveImportance(isPirate, isPromo, formatDetail)
 			importanceStr := strings.Repeat("*", importance)
 
 			fmt.Printf("%-3d %-20.20s %-30.30s %-6s %-10s %-10.10s %-5s %-5s %-10s %-30.30s\n",

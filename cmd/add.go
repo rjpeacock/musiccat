@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"musiccat/cmd/helpers"
 	"musiccat/external/musicbrainz"
 	"musiccat/internal/config"
 	"musiccat/internal/db"
@@ -79,7 +80,7 @@ func addFromMusicBrainz(artistName string, pageSize int, sortFields string, desc
 		}
 		fmt.Printf("%d. %s%s\n", i+1, artist.Name, disamb)
 	}
-	selectedArtist, err := selectItem("Select artist (number): ", artists)
+	selectedArtist, err := helpers.SelectItem("Select artist (number): ", artists)
 	if err != nil {
 		return err
 	}
@@ -94,14 +95,14 @@ func addFromMusicBrainz(artistName string, pageSize int, sortFields string, desc
 	}
 
 	// Apply sorting
-	sortFieldsSlice := parseSortFields(sortFields)
-	allReleaseGroups = SortReleaseGroups(allReleaseGroups, sortFieldsSlice, desc)
+	sortFieldsSlice := helpers.ParseSortFields(sortFields)
+	allReleaseGroups = helpers.SortReleaseGroups(allReleaseGroups, sortFieldsSlice, desc)
 
 	// Display and select releases, fetching more if needed
-	var selectedItems []SelectionItem
+	var selectedItems []helpers.SelectionItem
 	currentPage := 0
 	for {
-		items, needMore, _, err := selectReleasesWithPagination(allReleaseGroups, pageSize, cfg.CurrentFormat, albumOnly, singleOnly, year, titleFilter, currentPage)
+		items, needMore, _, err := helpers.SelectReleasesWithPagination(allReleaseGroups, pageSize, cfg.CurrentFormat, albumOnly, singleOnly, year, titleFilter, currentPage)
 		if err != nil {
 			return err
 		}
@@ -119,7 +120,7 @@ func addFromMusicBrainz(artistName string, pageSize int, sortFields string, desc
 				continue
 			}
 			// Sort the new batch and append (don't re-sort everything to keep stable numbering)
-			moreGroups = SortReleaseGroups(moreGroups, sortFieldsSlice, desc)
+			moreGroups = helpers.SortReleaseGroups(moreGroups, sortFieldsSlice, desc)
 			allReleaseGroups = append(allReleaseGroups, moreGroups...)
 			// Continue from the first page of newly fetched results
 			currentPage = offset / pageSize
@@ -132,27 +133,27 @@ func addFromMusicBrainz(artistName string, pageSize int, sortFields string, desc
 	// Insert each selected release and ownership
 	totalAdded := 0
 	for _, item := range selectedItems {
-		rg := item.releaseGroup
-		var releaseYear *int = parseYear(rg.FirstReleaseDate)
+		rg := item.ReleaseGroup
+		var releaseYear *int = helpers.ParseYear(rg.FirstReleaseDate)
 		releaseID, err := db.InsertRelease(database, selectedArtist.Name, rg.Title, releaseYear, &rg.ID)
 		if err != nil {
 			return err
 		}
 
 		// Insert multiple ownership entries if quantity > 1
-		for i := 0; i < item.quantity; i++ {
+		for i := 0; i < item.Quantity; i++ {
 			var notes *string
 
 			// Prompt for notes for each copy if quantity > 1
-			if item.quantity > 1 {
-				prompt := fmt.Sprintf("Notes for copy %d/%d of %s (optional): ", i+1, item.quantity, rg.Title)
-				noteStr := promptString(prompt)
+			if item.Quantity > 1 {
+				prompt := fmt.Sprintf("Notes for copy %d/%d of %s (optional): ", i+1, item.Quantity, rg.Title)
+				noteStr := helpers.PromptString(prompt)
 				if noteStr != "" {
 					notes = &noteStr
 				}
-			} else if item.notes != "" {
+			} else if item.Notes != "" {
 				// Use existing notes for single copy
-				notes = &item.notes
+				notes = &item.Notes
 			}
 
 			// Auto-set format detail based on type and format category
@@ -164,8 +165,8 @@ func addFromMusicBrainz(artistName string, pageSize int, sortFields string, desc
 				}
 			}
 
-			finalPirate := item.pirate || pirateFlag
-			_, err = db.InsertOwnership(database, releaseID, cfg.CurrentFormat, formatDetail, nil, nil, nil, notes, nil, item.promo, finalPirate)
+			finalPirate := item.Pirate || pirateFlag
+			_, err = db.InsertOwnership(database, releaseID, cfg.CurrentFormat, formatDetail, nil, nil, nil, notes, nil, item.Promo, finalPirate)
 			if err != nil {
 				return err
 			}
@@ -191,11 +192,11 @@ func addManual() error {
 	}
 
 	// Prompts
-	artist := promptString("Artist: ")
-	title := promptString("Title: ")
-	manualYear := promptOptionalInt("Year (optional): ")
-	formatCategory := promptValidFormat("Format category (CD, Vinyl, Cassette): ")
-	formatDetailInput := promptFormatDetail(formatCategory)
+	artist := helpers.PromptString("Artist: ")
+	title := helpers.PromptString("Title: ")
+	manualYear := helpers.PromptOptionalInt("Year (optional): ")
+	formatCategory := helpers.PromptValidFormat("Format category (CD, Vinyl, Cassette): ")
+	formatDetailInput := helpers.PromptFormatDetail(formatCategory)
 	var formatDetail *string
 	if formatDetailInput != "" {
 		formatDetail = &formatDetailInput

@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"musiccat/cmd/helpers"
 	"musiccat/internal/db"
 
 	"github.com/spf13/cobra"
@@ -152,13 +153,13 @@ func updateInteractive(id int) error {
 	fmt.Println()
 
 	// Prompt for updates
-	newNotes := promptOptionalString("Notes", nullStringValue(currentNotes))
-	newSource := promptOptionalString("Source", nullStringValue(currentSource))
-	newFormatDetail := promptOptionalString("Format detail", nullStringValue(currentFormatDetail))
-	newPurchaseDate := promptOptionalString("Purchase date", nullStringValue(currentPurchaseDate))
-	newCost := promptOptionalFloat("Cost", nullFloat64Value(currentCost))
-	newPromo := promptOptionalBool("Promo", currentPromo)
-	newPirate := promptOptionalBool("Pirate", currentPirate)
+	newNotes := helpers.PromptOptionalString("Notes", nullStringValue(currentNotes))
+	newSource := helpers.PromptOptionalString("Source", nullStringValue(currentSource))
+	newFormatDetail := helpers.PromptOptionalString("Format detail", nullStringValue(currentFormatDetail))
+	newPurchaseDate := helpers.PromptOptionalString("Purchase date", nullStringValue(currentPurchaseDate))
+	newCost := helpers.PromptOptionalFloat("Cost", nullFloat64Value(currentCost))
+	newPromo := helpers.PromptOptionalBool("Promo", currentPromo)
+	newPirate := helpers.PromptOptionalBool("Pirate", currentPirate)
 
 	// Apply updates using the new UpdateOwnership function
 	return db.UpdateOwnership(database, int64(id), newFormatDetail, newPurchaseDate, newCost, newSource, newNotes, nil, newPromo, newPirate)
