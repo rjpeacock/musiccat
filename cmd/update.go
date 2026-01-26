@@ -124,22 +124,35 @@ func updateInteractive(id int) error {
 		return err
 	}
 
-	// Get current values
+	// Get current values including release information
 	var currentNotes, currentSource, currentFormatDetail, currentAcquiredDate sql.NullString
 	var currentCost sql.NullFloat64
 	var currentPromo, currentPirate bool
+	var artist, title, formatCategory string
+	var yearNull sql.NullInt32
 
 	err = database.QueryRow(`
-		SELECT notes, source, format_detail, acquired_date, cost, is_promo, is_pirate 
-		FROM ownership WHERE id = ?`, id).Scan(
+		SELECT r.artist, r.title, r.year, o.format_category, o.notes, o.source, o.format_detail, o.acquired_date, o.cost, o.is_promo, o.is_pirate 
+		FROM ownership o 
+		JOIN releases r ON o.release_id = r.id 
+		WHERE o.id = ?`, id).Scan(
+		&artist, &title, &yearNull, &formatCategory,
 		&currentNotes, &currentSource, &currentFormatDetail, &currentAcquiredDate,
 		&currentCost, &currentPromo, &currentPirate)
 	if err != nil {
 		return fmt.Errorf("ownership with ID %d not found", id)
 	}
 
+	// Display release information
+	yearStr := ""
+	if yearNull.Valid {
+		yearStr = fmt.Sprintf("%d", yearNull.Int32)
+	}
+	fmt.Printf("=== Editing ownership ID %d ===\n", id)
+	fmt.Printf("%s - %s (%s) [%s]\n\n", artist, title, yearStr, formatCategory)
+
 	// Display current values and prompt for new ones
-	fmt.Printf("Current values for ownership ID %d:\n", id)
+	fmt.Println("Current values:")
 	fmt.Printf("Notes: %s\n", safeNullString(currentNotes))
 	fmt.Printf("Source: %s\n", safeNullString(currentSource))
 	fmt.Printf("Format Detail: %s\n", safeNullString(currentFormatDetail))
