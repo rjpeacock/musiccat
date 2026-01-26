@@ -249,5 +249,11 @@ func init() {
 	addCmd.Flags().Int("year", 0, "Filter by specific release year")
 	addCmd.Flags().String("title", "", "Filter by release title (partial match)")
 	addCmd.Flags().Bool("pirate", false, "Mark releases as pirate copies")
+	
+	// Shell completions
+	addCmd.RegisterFlagCompletionFunc("sort", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return []string{"type", "year", "title", "type,year", "type,year,title"}, cobra.ShellCompDirectiveNoFileComp
+	})
+	
 	rootCmd.AddCommand(addCmd)
 }

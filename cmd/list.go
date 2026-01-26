@@ -201,5 +201,14 @@ func init() {
 	listCmd.Flags().String("notes", "", "Filter by notes (partial, case-insensitive)")
 	listCmd.Flags().String("sort", "added", "Sort by field (artist, title, year, format, added)")
 	listCmd.Flags().Bool("desc", false, "Sort in descending order")
+	
+	// Shell completions
+	listCmd.RegisterFlagCompletionFunc("format", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return helpers.ValidFormats, cobra.ShellCompDirectiveNoFileComp
+	})
+	listCmd.RegisterFlagCompletionFunc("sort", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return []string{"artist", "title", "year", "format", "added"}, cobra.ShellCompDirectiveNoFileComp
+	})
+	
 	rootCmd.AddCommand(listCmd)
 }
