@@ -13,19 +13,42 @@ import (
 )
 
 var updateCmd = &cobra.Command{
-	Use:     "update <id>",
+	Use:     "update [id]",
 	Aliases: []string{"u", "up"},
 	Short:   "Update ownership details (interactive by default)",
 	Long: `Update ownership details interactively or using flags.
 Editable fields: acquired_date, cost, source, notes, is_promo, is_pirate.
 Non-editable fields: artist, title, year, format, MusicBrainz ID.
-Interactive mode is used when no flags are provided.`,
-	Args: cobra.ExactArgs(1),
+Interactive mode is used when no flags are provided.
+
+If no ID is provided, updates the most recently added item.`,
+	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		idStr := args[0]
-		id, err := strconv.Atoi(idStr)
-		if err != nil {
-			return fmt.Errorf("invalid ID: %s", idStr)
+		var id int
+		var err error
+		
+		if len(args) == 0 {
+			// No ID provided - get the most recent ownership ID
+			database, err := db.OpenDB()
+			if err != nil {
+				return err
+			}
+			defer database.Close()
+			
+			if err := db.BootstrapDB(database); err != nil {
+				return err
+			}
+			
+			err = database.QueryRow("SELECT id FROM ownership ORDER BY id DESC LIMIT 1").Scan(&id)
+			if err != nil {
+				return fmt.Errorf("no items found in collection")
+			}
+		} else {
+			idStr := args[0]
+			id, err = strconv.Atoi(idStr)
+			if err != nil {
+				return fmt.Errorf("invalid ID: %s", idStr)
+			}
 		}
 
 		cost, _ := cmd.Flags().GetFloat64("cost")
