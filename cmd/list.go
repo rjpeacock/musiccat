@@ -114,8 +114,8 @@ var listCmd = &cobra.Command{
 		}
 		defer rows.Close()
 
-		fmt.Printf("%-3s %-20s %-30s %-6s %-10s %-10s %-5s %-5s %-12s %-10s %-30s\n", "ID", "Artist", "Title", "Year", "Format", "Detail", "Promo", "Pirate", "Acquired", "Importance", "Notes")
-		fmt.Println(strings.Repeat("-", 150))
+		fmt.Printf("%-3s %-25s %-40s %-6s %-10s %-10s %-5s %-5s %-12s %-10s %-30s\n", "ID", "Artist", "Title", "Year", "Format", "Detail", "Promo", "Pirate", "Acquired", "Importance", "Notes")
+		fmt.Println(strings.Repeat("-", 165))
 
 		for rows.Next() {
 			var id int
@@ -185,7 +185,7 @@ var listCmd = &cobra.Command{
 			importance := helpers.DeriveImportance(isPirate, isPromo, formatDetail)
 			importanceStr := strings.Repeat("*", importance)
 
-			fmt.Printf("%-3d %-20.20s %-30.30s %-6s %-10s %-10.10s %-5s %-5s %-12.12s %-10s %-30.30s\n",
+			fmt.Printf("%-3d %-25.25s %-40.40s %-6s %-10s %-10.10s %-5s %-5s %-12.12s %-10s %-30.30s\n",
 				id, artist, title, yearStr, formatCategory, detailStr, promoStr, pirateStr, acquiredStr, importanceStr, notesStr)
 		}
 		return rows.Err()
