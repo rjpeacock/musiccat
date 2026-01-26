@@ -13,8 +13,9 @@ import (
 )
 
 var updateCmd = &cobra.Command{
-	Use:   "update <id>",
-	Short: "Update ownership details (interactive by default)",
+	Use:     "update <id>",
+	Aliases: []string{"u", "up"},
+	Short:   "Update ownership details (interactive by default)",
 	Long: `Update ownership details interactively or using flags.
 Editable fields: acquired_date, cost, source, notes, is_promo, is_pirate.
 Non-editable fields: artist, title, year, format, MusicBrainz ID.

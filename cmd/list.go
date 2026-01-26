@@ -12,8 +12,9 @@ import (
 )
 
 var listCmd = &cobra.Command{
-	Use:   "list [artist]",
-	Short: "List all stored releases",
+	Use:     "list [artist]",
+	Aliases: []string{"ls", "l"},
+	Short:   "List all stored releases",
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		artist, _ := cmd.Flags().GetString("artist")

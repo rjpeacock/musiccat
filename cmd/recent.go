@@ -4,8 +4,9 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/spf13/cobra"
 	"musiccat/internal/db"
+
+	"github.com/spf13/cobra"
 )
 
 type OwnershipRecord struct {
@@ -19,8 +20,9 @@ type OwnershipRecord struct {
 }
 
 var recentCmd = &cobra.Command{
-	Use:   "recent",
-	Short: "Show recent ownership additions",
+	Use:     "recent",
+	Aliases: []string{"r"},
+	Short:   "Show recent ownership additions",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		format, _ := cmd.Flags().GetString("format")
 		limit, _ := cmd.Flags().GetInt("limit")

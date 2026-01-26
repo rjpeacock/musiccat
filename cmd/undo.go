@@ -9,8 +9,9 @@ import (
 )
 
 var undoCmd = &cobra.Command{
-	Use:   "undo <ID | all>",
-	Short: "Remove ownership entries",
+	Use:     "undo <ID | all>",
+	Aliases: []string{"un"},
+	Short:   "Remove ownership entries",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		target := args[0]

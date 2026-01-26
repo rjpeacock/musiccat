@@ -13,8 +13,9 @@ import (
 )
 
 var addCmd = &cobra.Command{
-	Use:   `add "<artist name>"`,
-	Short: "Search and add releases by artist",
+	Use:     `add "<artist name>"`,
+	Aliases: []string{"a"},
+	Short:   "Search and add releases by artist",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		manual, _ := cmd.Flags().GetBool("manual")
 		if manual {

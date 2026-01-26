@@ -9,8 +9,9 @@ import (
 )
 
 var statsCmd = &cobra.Command{
-	Use:   "stats",
-	Short: "Show collection statistics",
+	Use:     "stats",
+	Aliases: []string{"st"},
+	Short:   "Show collection statistics",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Open DB
 		database, err := db.OpenDB()
