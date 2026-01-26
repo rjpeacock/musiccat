@@ -168,9 +168,9 @@ func selectReleasesWithPagination(releaseGroups []musicbrainz.ReleaseGroup, page
 
 		var prompt string
 		if isLastPage && !canFetchMore {
-			prompt = "Select releases (numbers, comma-separated, suffix 'p' for promo, suffix '(n)' for quantity): "
+			prompt = "Select releases (numbers, comma-separated, suffix 'p' for promo, suffix 'i' for pirate, suffix '(n)' for quantity): "
 		} else {
-			prompt = "Select releases (numbers, comma-separated, suffix 'p' for promo, suffix '(n)' for quantity, 00 for more): "
+			prompt = "Select releases (numbers, comma-separated, suffix 'p' for promo, suffix 'i' for pirate, suffix '(n)' for quantity, 00 for more): "
 		}
 		input := promptString(prompt)
 		if input == "00" {
@@ -210,6 +210,12 @@ func parseSelections(input string, releaseGroups []musicbrainz.ReleaseGroup) ([]
 			part = strings.TrimSuffix(part, "p")
 		}
 
+		// Check for pirate suffix 'i'
+		pirate := strings.HasSuffix(part, "i")
+		if pirate {
+			part = strings.TrimSuffix(part, "i")
+		}
+
 		// Handle quantity with optional parentheses: "1(2)" or just "1"
 		quantity := 1
 		if strings.Contains(part, "(") && strings.HasSuffix(part, ")") {
@@ -232,7 +238,7 @@ func parseSelections(input string, releaseGroups []musicbrainz.ReleaseGroup) ([]
 		// User enters absolute numbers (1-based), convert to 0-based index
 		actualIndex := num - 1
 
-		selected = append(selected, SelectionItem{releaseGroup: releaseGroups[actualIndex], promo: promo, pirate: false, quantity: quantity})
+		selected = append(selected, SelectionItem{releaseGroup: releaseGroups[actualIndex], promo: promo, pirate: pirate, quantity: quantity})
 	}
 
 	return selected, nil
