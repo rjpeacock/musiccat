@@ -89,7 +89,7 @@ var statsCmd = &cobra.Command{
 
 		fmt.Printf("\nTotal spend: $%.2f\n", totalSpend)
 
-		// Top 5 artists by items owned
+		// Top 10 artists by items owned
 		artistRows, err := database.Query(`
 			SELECT r.artist, 
 			       COUNT(*) as total,
@@ -99,14 +99,14 @@ var statsCmd = &cobra.Command{
 			JOIN releases r ON o.release_id = r.id
 			GROUP BY r.artist
 			ORDER BY total DESC
-			LIMIT 5
+			LIMIT 10
 		`)
 		if err != nil {
 			return err
 		}
 		defer artistRows.Close()
 
-		fmt.Println("\nTop 5 artists by items owned:")
+		fmt.Println("\nTop 10 artists by items owned:")
 		for artistRows.Next() {
 			var artist string
 			var total, albums, singles int
