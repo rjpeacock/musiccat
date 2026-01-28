@@ -108,6 +108,32 @@ func BootstrapDB(db *sql.DB) error {
 	return nil
 }
 
+// OwnershipInput holds all fields needed to insert a new ownership record.
+type OwnershipInput struct {
+	ReleaseID      int64
+	FormatCategory string
+	FormatDetail   *string
+	AcquiredDate   *string
+	Cost           *float64
+	Source         *string
+	Notes          *string
+	DiscogsID      *int
+	IsPromo        bool
+	IsPirate       bool
+}
+
+// OwnershipUpdate holds all fields that can be updated on an ownership record.
+type OwnershipUpdate struct {
+	FormatDetail *string
+	AcquiredDate *string
+	Cost         *float64
+	Source       *string
+	Notes        *string
+	DiscogsID    *int
+	IsPromo      *bool
+	IsPirate     *bool
+}
+
 func InsertRelease(db *sql.DB, artist, title string, year *int, mbid *string) (int64, error) {
 	// First, check if release already exists
 	if mbid != nil {
@@ -134,9 +160,9 @@ func InsertRelease(db *sql.DB, artist, title string, year *int, mbid *string) (i
 	return result.LastInsertId()
 }
 
-func InsertOwnership(db *sql.DB, releaseID int64, formatCategory string, formatDetail *string, acquiredDate *string, cost *float64, source *string, notes *string, discogsID *int, isPromo bool, isPirate bool) (int64, error) {
+func InsertOwnership(db *sql.DB, input OwnershipInput) (int64, error) {
 	query := `INSERT INTO ownership (release_id, format_category, format_detail, acquired_date, cost, source, notes, discogs_release_id, is_promo, is_pirate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-	result, err := db.Exec(query, releaseID, formatCategory, formatDetail, acquiredDate, cost, source, notes, discogsID, isPromo, isPirate)
+	result, err := db.Exec(query, input.ReleaseID, input.FormatCategory, input.FormatDetail, input.AcquiredDate, input.Cost, input.Source, input.Notes, input.DiscogsID, input.IsPromo, input.IsPirate)
 	if err != nil {
 		return 0, err
 	}
@@ -149,7 +175,7 @@ func GetReleaseID(db *sql.DB, mbid string) (int64, error) {
 	return id, err
 }
 
-func UpdateOwnership(db *sql.DB, ownershipID int64, formatDetail *string, acquiredDate *string, cost *float64, source *string, notes *string, discogsID *int, isPromo *bool, isPirate *bool) error {
+func UpdateOwnership(db *sql.DB, ownershipID int64, update OwnershipUpdate) error {
 	query := `UPDATE ownership SET 
 		format_detail = COALESCE(?, format_detail),
 		acquired_date = COALESCE(?, acquired_date),
@@ -161,7 +187,7 @@ func UpdateOwnership(db *sql.DB, ownershipID int64, formatDetail *string, acquir
 		is_pirate = COALESCE(?, is_pirate)
 	WHERE id = ?`
 
-	_, err := db.Exec(query, formatDetail, acquiredDate, cost, source, notes, discogsID, isPromo, isPirate, ownershipID)
+	_, err := db.Exec(query, update.FormatDetail, update.AcquiredDate, update.Cost, update.Source, update.Notes, update.DiscogsID, update.IsPromo, update.IsPirate, ownershipID)
 	return err
 }
 

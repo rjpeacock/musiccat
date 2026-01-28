@@ -52,7 +52,10 @@ func TestAddTagToOwnership(t *testing.T) {
 		t.Fatalf("Failed to insert release: %v", err)
 	}
 
-	ownershipID, err := insertOwnership(t, db, releaseID, "CD", nil, nil, nil, nil, nil, nil, false, false)
+	ownershipID, err := insertOwnership(t, db, OwnershipInput{
+		ReleaseID:      releaseID,
+		FormatCategory: "CD",
+	})
 	if err != nil {
 		t.Fatalf("Failed to insert ownership: %v", err)
 	}
@@ -96,7 +99,10 @@ func TestAddTagToOwnershipIdempotent(t *testing.T) {
 		t.Fatalf("Failed to insert release: %v", err)
 	}
 
-	ownershipID, err := insertOwnership(t, db, releaseID, "CD", nil, nil, nil, nil, nil, nil, false, false)
+	ownershipID, err := insertOwnership(t, db, OwnershipInput{
+		ReleaseID:      releaseID,
+		FormatCategory: "CD",
+	})
 	if err != nil {
 		t.Fatalf("Failed to insert ownership: %v", err)
 	}
@@ -142,7 +148,10 @@ func TestMultipleTagsOnOwnership(t *testing.T) {
 		t.Fatalf("Failed to insert release: %v", err)
 	}
 
-	ownershipID, err := insertOwnership(t, db, releaseID, "CD", nil, nil, nil, nil, nil, nil, false, false)
+	ownershipID, err := insertOwnership(t, db, OwnershipInput{
+		ReleaseID:      releaseID,
+		FormatCategory: "CD",
+	})
 	if err != nil {
 		t.Fatalf("Failed to insert ownership: %v", err)
 	}
@@ -192,7 +201,10 @@ func TestRemoveTagFromOwnership(t *testing.T) {
 		t.Fatalf("Failed to insert release: %v", err)
 	}
 
-	ownershipID, err := insertOwnership(t, db, releaseID, "CD", nil, nil, nil, nil, nil, nil, false, false)
+	ownershipID, err := insertOwnership(t, db, OwnershipInput{
+		ReleaseID:      releaseID,
+		FormatCategory: "CD",
+	})
 	if err != nil {
 		t.Fatalf("Failed to insert ownership: %v", err)
 	}
@@ -247,7 +259,10 @@ func TestRemoveAllTagsFromOwnership(t *testing.T) {
 		t.Fatalf("Failed to insert release: %v", err)
 	}
 
-	ownershipID, err := insertOwnership(t, db, releaseID, "CD", nil, nil, nil, nil, nil, nil, false, false)
+	ownershipID, err := insertOwnership(t, db, OwnershipInput{
+		ReleaseID:      releaseID,
+		FormatCategory: "CD",
+	})
 	if err != nil {
 		t.Fatalf("Failed to insert ownership: %v", err)
 	}
@@ -288,7 +303,10 @@ func TestRenameTag(t *testing.T) {
 		t.Fatalf("Failed to insert release: %v", err)
 	}
 
-	ownershipID, err := insertOwnership(t, db, releaseID, "CD", nil, nil, nil, nil, nil, nil, false, false)
+	ownershipID, err := insertOwnership(t, db, OwnershipInput{
+		ReleaseID:      releaseID,
+		FormatCategory: "CD",
+	})
 	if err != nil {
 		t.Fatalf("Failed to insert ownership: %v", err)
 	}
@@ -337,7 +355,10 @@ func TestDeleteTag(t *testing.T) {
 		t.Fatalf("Failed to insert release: %v", err)
 	}
 
-	ownershipID, err := insertOwnership(t, db, releaseID, "CD", nil, nil, nil, nil, nil, nil, false, false)
+	ownershipID, err := insertOwnership(t, db, OwnershipInput{
+		ReleaseID:      releaseID,
+		FormatCategory: "CD",
+	})
 	if err != nil {
 		t.Fatalf("Failed to insert ownership: %v", err)
 	}

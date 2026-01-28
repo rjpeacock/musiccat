@@ -288,7 +288,15 @@ func updateInteractive(id int) error {
 	newPirate := helpers.PromptOptionalBool("Pirate", currentPirate)
 
 	// Apply updates using the new UpdateOwnership function
-	return db.UpdateOwnership(database, int64(id), newFormatDetail, newAcquiredDate, newCost, newSource, newNotes, nil, newPromo, newPirate)
+	return db.UpdateOwnership(database, int64(id), db.OwnershipUpdate{
+		FormatDetail: newFormatDetail,
+		AcquiredDate: newAcquiredDate,
+		Cost:         newCost,
+		Source:       newSource,
+		Notes:        newNotes,
+		IsPromo:      newPromo,
+		IsPirate:     newPirate,
+	})
 }
 
 func safeNullString(ns sql.NullString) string {

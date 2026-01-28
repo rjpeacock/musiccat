@@ -91,46 +91,8 @@ func insertRelease(t *testing.T, db *sql.DB, artist, title string, year *int, mb
 	return result.LastInsertId()
 }
 
-func insertOwnership(t *testing.T, db *sql.DB, releaseID int64, formatCategory string, formatDetail *string, acquiredDate *string, cost *float64, source *string, notes *string, discogsID *int, isPromo bool, isPirate bool) (int64, error) {
-	query := `INSERT INTO ownership (release_id, format_category, format_detail, acquired_date, cost, source, notes, discogs_release_id, is_promo, is_pirate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-	var args []interface{}
-	args = append(args, releaseID, formatCategory)
-	if formatDetail != nil {
-		args = append(args, *formatDetail)
-	} else {
-		args = append(args, nil)
-	}
-	if acquiredDate != nil {
-		args = append(args, *acquiredDate)
-	} else {
-		args = append(args, nil)
-	}
-	if cost != nil {
-		args = append(args, *cost)
-	} else {
-		args = append(args, nil)
-	}
-	if source != nil {
-		args = append(args, *source)
-	} else {
-		args = append(args, nil)
-	}
-	if notes != nil {
-		args = append(args, *notes)
-	} else {
-		args = append(args, nil)
-	}
-	if discogsID != nil {
-		args = append(args, *discogsID)
-	} else {
-		args = append(args, nil)
-	}
-	args = append(args, isPromo, isPirate)
-	result, err := db.Exec(query, args...)
-	if err != nil {
-		return 0, err
-	}
-	return result.LastInsertId()
+func insertOwnership(t *testing.T, db *sql.DB, input OwnershipInput) (int64, error) {
+	return InsertOwnership(db, input)
 }
 
 func TestInsertRelease(t *testing.T) {
@@ -186,7 +148,10 @@ func TestInsertOwnership(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := insertOwnership(t, db, tt.releaseID, tt.formatCategory, nil, nil, nil, nil, nil, nil, false, false)
+			_, err := insertOwnership(t, db, OwnershipInput{
+				ReleaseID:      tt.releaseID,
+				FormatCategory: tt.formatCategory,
+			})
 			if (err != nil) != tt.wantErr {
 				t.Errorf("insertOwnership() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -207,12 +172,19 @@ func TestInsertOwnershipPromo(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Insert ownership with promo false
-	id1, err := insertOwnership(t, db, releaseID, "CD", nil, nil, nil, nil, nil, nil, false, false)
+	id1, err := insertOwnership(t, db, OwnershipInput{
+		ReleaseID:      releaseID,
+		FormatCategory: "CD",
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	// Insert with promo true
-	id2, err := insertOwnership(t, db, releaseID, "Vinyl", nil, nil, nil, nil, nil, nil, true, false)
+	id2, err := insertOwnership(t, db, OwnershipInput{
+		ReleaseID:      releaseID,
+		FormatCategory: "Vinyl",
+		IsPromo:        true,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -247,12 +219,19 @@ func TestInsertOwnershipPirate(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Insert ownership with pirate false
-	id1, err := insertOwnership(t, db, releaseID, "CD", nil, nil, nil, nil, nil, nil, false, false)
+	id1, err := insertOwnership(t, db, OwnershipInput{
+		ReleaseID:      releaseID,
+		FormatCategory: "CD",
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	// Insert with pirate true
-	id2, err := insertOwnership(t, db, releaseID, "Vinyl", nil, nil, nil, nil, nil, nil, false, true)
+	id2, err := insertOwnership(t, db, OwnershipInput{
+		ReleaseID:      releaseID,
+		FormatCategory: "Vinyl",
+		IsPirate:       true,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -289,7 +268,10 @@ func TestUpdateOwnership(t *testing.T) {
 	}
 
 	// Insert ownership
-	id, err := insertOwnership(t, db, releaseID, "CD", nil, nil, nil, nil, nil, nil, false, false)
+	id, err := insertOwnership(t, db, OwnershipInput{
+		ReleaseID:      releaseID,
+		FormatCategory: "CD",
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -303,7 +285,15 @@ func TestUpdateOwnership(t *testing.T) {
 	newPromo := true
 	newPirate := false
 
-	err = UpdateOwnership(db, id, &newFormatDetail, &newAcquiredDate, &newCost, &newSource, &newNotes, nil, &newPromo, &newPirate)
+	err = UpdateOwnership(db, id, OwnershipUpdate{
+		FormatDetail: &newFormatDetail,
+		AcquiredDate: &newAcquiredDate,
+		Cost:         &newCost,
+		Source:       &newSource,
+		Notes:        &newNotes,
+		IsPromo:      &newPromo,
+		IsPirate:     &newPirate,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}

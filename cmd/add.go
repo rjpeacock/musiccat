@@ -167,7 +167,14 @@ func addFromMusicBrainz(artistName string, pageSize int, sortFields string, desc
 			}
 
 			finalPirate := item.Pirate || pirateFlag
-			_, err = db.InsertOwnership(database, releaseID, cfg.CurrentFormat, formatDetail, nil, nil, nil, notes, nil, item.Promo, finalPirate)
+			_, err = db.InsertOwnership(database, db.OwnershipInput{
+				ReleaseID:      releaseID,
+				FormatCategory: cfg.CurrentFormat,
+				FormatDetail:   formatDetail,
+				Notes:          notes,
+				IsPromo:        item.Promo,
+				IsPirate:       finalPirate,
+			})
 			if err != nil {
 				return err
 			}
@@ -210,7 +217,11 @@ func addManual() error {
 	}
 
 	// Insert ownership
-	_, err = db.InsertOwnership(database, id, formatCategory, formatDetail, nil, nil, nil, nil, nil, false, false)
+	_, err = db.InsertOwnership(database, db.OwnershipInput{
+		ReleaseID:      id,
+		FormatCategory: formatCategory,
+		FormatDetail:   formatDetail,
+	})
 	if err != nil {
 		return err
 	}
