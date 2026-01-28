@@ -5,6 +5,9 @@ musiccat
 musiccat.exe
 *.exe
 
+# Windows
+*.stackdump
+
 # Editor
 .DS_Store
 .idea/
