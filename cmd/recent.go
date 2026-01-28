@@ -3,6 +3,7 @@ package cmd
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"musiccat/internal/db"
 
@@ -84,6 +85,16 @@ var recentCmd = &cobra.Command{
 				}
 				fmt.Printf(", notes: %s", notesStr)
 			}
+			
+			// Get and display tags
+			tagList, err := db.GetTagsForOwnership(database, int64(rec.ID))
+			if err != nil {
+				return err
+			}
+			if len(tagList) > 0 {
+				fmt.Printf(", tags: [%s]", strings.Join(tagList, ", "))
+			}
+			
 			if rec.PurchaseDate != nil {
 				fmt.Printf(", purchased %s", *rec.PurchaseDate)
 			}
