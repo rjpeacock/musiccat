@@ -115,8 +115,8 @@ var listCmd = &cobra.Command{
 		}
 		defer rows.Close()
 
-		fmt.Printf("%-3s %-25s %-40s %-6s %-10s %-10s %-5s %-5s %-12s %-10s %-30s %-20s\n", "ID", "Artist", "Title", "Year", "Format", "Detail", "Promo", "Pirate", "Acquired", "Importance", "Notes", "Tags")
-		fmt.Println(strings.Repeat("-", 185))
+		fmt.Printf("%-5s %-25s %-40s %-6s %-10s %-10s %-5s %-5s %-12s %-10s %-30s %-20s\n", "ID", "Artist", "Title", "Year", "Format", "Detail", "Promo", "Pirate", "Acquired", "Importance", "Notes", "Tags")
+		fmt.Println(strings.Repeat("-", 187))
 
 		for rows.Next() {
 			var id int
@@ -197,7 +197,7 @@ var listCmd = &cobra.Command{
 				tagsStr = "[" + strings.Join(tagList, ", ") + "]"
 			}
 
-			fmt.Printf("%-3d %-25.25s %-40.40s %-6s %-10s %-10.10s %-5s %-5s %-12.12s %-10s %-30.30s %-20.20s\n",
+			fmt.Printf("%-5d %-25.25s %-40.40s %-6s %-10s %-10.10s %-5s %-5s %-12.12s %-10s %-30.30s %-20.20s\n",
 				id, artist, title, yearStr, formatCategory, detailStr, promoStr, pirateStr, acquiredStr, importanceStr, notesStr, tagsStr)
 		}
 		return rows.Err()
