@@ -186,18 +186,50 @@ func GetReleaseID(db *sql.DB, mbid string) (int64, error) {
 }
 
 func UpdateOwnership(db *sql.DB, ownershipID int64, update OwnershipUpdate) error {
-	query := `UPDATE ownership SET 
-		format_detail = COALESCE(?, format_detail),
-		acquired_date = COALESCE(?, acquired_date),
-		cost = COALESCE(?, cost),
-		source = COALESCE(?, source),
-		notes = COALESCE(?, notes),
-		discogs_release_id = COALESCE(?, discogs_release_id),
-		is_promo = COALESCE(?, is_promo),
-		is_pirate = COALESCE(?, is_pirate)
-	WHERE id = ?`
+	var setClauses []string
+	var args []interface{}
 
-	_, err := db.Exec(query, update.FormatDetail, update.AcquiredDate, update.Cost, update.Source, update.Notes, update.DiscogsID, update.IsPromo, update.IsPirate, ownershipID)
+	if update.FormatDetail != nil {
+		setClauses = append(setClauses, "format_detail = ?")
+		args = append(args, *update.FormatDetail)
+	}
+	if update.AcquiredDate != nil {
+		setClauses = append(setClauses, "acquired_date = ?")
+		args = append(args, *update.AcquiredDate)
+	}
+	if update.Cost != nil {
+		setClauses = append(setClauses, "cost = ?")
+		args = append(args, *update.Cost)
+	}
+	if update.Source != nil {
+		setClauses = append(setClauses, "source = ?")
+		args = append(args, *update.Source)
+	}
+	if update.Notes != nil {
+		setClauses = append(setClauses, "notes = ?")
+		args = append(args, *update.Notes)
+	}
+	if update.DiscogsID != nil {
+		setClauses = append(setClauses, "discogs_release_id = ?")
+		args = append(args, *update.DiscogsID)
+	}
+	if update.IsPromo != nil {
+		setClauses = append(setClauses, "is_promo = ?")
+		args = append(args, *update.IsPromo)
+	}
+	if update.IsPirate != nil {
+		setClauses = append(setClauses, "is_pirate = ?")
+		args = append(args, *update.IsPirate)
+	}
+
+	if len(setClauses) == 0 {
+		return nil // Nothing to update
+	}
+
+	query := "UPDATE ownership SET " + strings.Join(setClauses, ", ") + " WHERE id = ?"
+	args = append(args, ownershipID)
+
+	_, err := db.Exec(query, args...)
 	return err
 }
 

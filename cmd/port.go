@@ -108,11 +108,9 @@ Example: musiccat port "Missing sleeve" "missing-sleeve"`,
 				// Clean up any double spaces or leading/trailing spaces
 				newNotes = strings.TrimSpace(strings.Join(strings.Fields(newNotes), " "))
 				
-				// Update notes (empty string if now empty)
-				var notesPtr *string
-				if newNotes != "" {
-					notesPtr = &newNotes
-				}
+				// Always update notes (use empty string pointer to clear if empty)
+				// Don't use nil - that tells UpdateOwnership to keep existing value
+				notesPtr := &newNotes
 				
 				if err := db.UpdateOwnership(database, int64(m.ownershipID), db.OwnershipUpdate{
 					Notes: notesPtr,
