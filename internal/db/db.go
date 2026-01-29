@@ -30,7 +30,17 @@ func OpenDB() (*sql.DB, error) {
 		return nil, err
 	}
 
-	return sql.Open("sqlite", path)
+	// Add busy timeout and WAL mode for better concurrency
+	connStr := path + "?_busy_timeout=5000&_journal_mode=WAL"
+	database, err := sql.Open("sqlite", connStr)
+	if err != nil {
+		return nil, err
+	}
+
+	// SQLite best practice: limit to 1 connection to avoid SQLITE_BUSY
+	database.SetMaxOpenConns(1)
+
+	return database, nil
 }
 
 const createReleasesTable = `
