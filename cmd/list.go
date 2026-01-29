@@ -113,94 +113,153 @@ var listCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		defer rows.Close()
 
-		fmt.Printf("%-5s %-25s %-40s %-6s %-10s %-10s %-5s %-5s %-12s %-10s %-30s %-20s\n", "ID", "Artist", "Title", "Year", "Format", "Detail", "Promo", "Pirate", "Acquired", "Importance", "Notes", "Tags")
-		fmt.Println(strings.Repeat("-", 187))
+		// Collect all records first to avoid nested queries
+		type record struct {
+			id            int
+			artist        string
+			title         string
+			year          *int
+			formatCategory string
+			formatDetail  *string
+			isPromo       bool
+			isPirate      bool
+			acquiredDate  *string
+			notes         *string
+		}
+		var records []record
 
 		for rows.Next() {
 			var id int
 			var artist, title, formatCategory string
-			var year *int
-			var formatDetail, acquiredDate, notes *string
-			var isPromo, isPirate bool
 			var yearNull sql.NullInt32
 			var formatDetailNull, acquiredDateNull, notesNull sql.NullString
+			var isPromo, isPirate bool
 
 			err := rows.Scan(&id, &artist, &title, &yearNull, &formatCategory, &formatDetailNull, &isPromo, &isPirate, &acquiredDateNull, &notesNull)
 			if err != nil {
+				rows.Close()
 				return err
+			}
+
+			rec := record{
+				id:             id,
+				artist:         artist,
+				title:          title,
+				formatCategory: formatCategory,
+				isPromo:        isPromo,
+				isPirate:       isPirate,
 			}
 
 			if yearNull.Valid {
 				y := int(yearNull.Int32)
-				year = &y
+				rec.year = &y
 			}
-
 			if formatDetailNull.Valid {
 				fd := formatDetailNull.String
-				formatDetail = &fd
+				rec.formatDetail = &fd
 			}
-
 			if acquiredDateNull.Valid {
 				ad := acquiredDateNull.String
-				acquiredDate = &ad
+				rec.acquiredDate = &ad
 			}
-
 			if notesNull.Valid {
 				n := notesNull.String
-				notes = &n
+				rec.notes = &n
 			}
 
+			records = append(records, rec)
+		}
+		rows.Close()
+
+		if err := rows.Err(); err != nil {
+			return err
+		}
+
+		// Fetch all tags in one query for efficiency
+		tagMap := make(map[int64][]string)
+		if len(records) > 0 {
+			ownershipIDs := make([]interface{}, len(records))
+			for i, rec := range records {
+				ownershipIDs[i] = rec.id
+			}
+
+			tagQuery := `SELECT ot.ownership_id, t.name 
+				FROM ownership_tags ot 
+				JOIN tags t ON ot.tag_id = t.id 
+				WHERE ot.ownership_id IN (?` + strings.Repeat(",?", len(ownershipIDs)-1) + `)
+				ORDER BY t.name`
+
+			tagRows, err := database.Query(tagQuery, ownershipIDs...)
+			if err != nil {
+				return err
+			}
+
+			for tagRows.Next() {
+				var ownershipID int64
+				var tagName string
+				if err := tagRows.Scan(&ownershipID, &tagName); err != nil {
+					tagRows.Close()
+					return err
+				}
+				tagMap[ownershipID] = append(tagMap[ownershipID], tagName)
+			}
+			tagRows.Close()
+
+			if err := tagRows.Err(); err != nil {
+				return err
+			}
+		}
+
+		fmt.Printf("%-5s %-25s %-40s %-6s %-10s %-10s %-5s %-5s %-12s %-10s %-30s %-20s\n", "ID", "Artist", "Title", "Year", "Format", "Detail", "Promo", "Pirate", "Acquired", "Importance", "Notes", "Tags")
+		fmt.Println(strings.Repeat("-", 187))
+
+		// Now process and display all records
+		for _, rec := range records {
 			yearStr := ""
-			if year != nil {
-				yearStr = fmt.Sprintf("%d", *year)
-			}
-
-			acquiredStr := ""
-			if acquiredDate != nil {
-				acquiredStr = *acquiredDate
+			if rec.year != nil {
+				yearStr = fmt.Sprintf("%d", *rec.year)
 			}
 
 			detailStr := ""
-			if formatDetail != nil {
-				detailStr = *formatDetail
+			if rec.formatDetail != nil {
+				detailStr = *rec.formatDetail
+			}
+
+			acquiredStr := ""
+			if rec.acquiredDate != nil {
+				acquiredStr = *rec.acquiredDate
 			}
 
 			promoStr := "no"
-			if isPromo {
+			if rec.isPromo {
 				promoStr = "yes"
 			}
 
 			pirateStr := "no"
-			if isPirate {
+			if rec.isPirate {
 				pirateStr = "yes"
 			}
 
 			notesStr := ""
-			if notes != nil {
-				notesStr = *notes
+			if rec.notes != nil {
+				notesStr = *rec.notes
 			}
 
-			// Calculate importance
-			importance := helpers.DeriveImportance(isPirate, isPromo, formatDetail)
+			importance := helpers.DeriveImportance(rec.isPirate, rec.isPromo, rec.formatDetail)
 			importanceStr := strings.Repeat("*", importance)
 
-			// Get tags for this ownership
-			tagList, err := db.GetTagsForOwnership(database, int64(id))
-			if err != nil {
-				return err
-			}
-			
+			// Get tags from map (already fetched in single query)
+			tagList := tagMap[int64(rec.id)]
 			tagsStr := ""
 			if len(tagList) > 0 {
 				tagsStr = "[" + strings.Join(tagList, ", ") + "]"
 			}
 
 			fmt.Printf("%-5d %-25.25s %-40.40s %-6s %-10s %-10.10s %-5s %-5s %-12.12s %-10s %-30.30s %-20.20s\n",
-				id, artist, title, yearStr, formatCategory, detailStr, promoStr, pirateStr, acquiredStr, importanceStr, notesStr, tagsStr)
+				rec.id, rec.artist, rec.title, yearStr, rec.formatCategory, detailStr, promoStr, pirateStr, acquiredStr, importanceStr, notesStr, tagsStr)
 		}
-		return rows.Err()
+		return nil
 	},
 }
 

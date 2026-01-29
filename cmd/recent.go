@@ -54,14 +54,15 @@ var recentCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		defer rows.Close()
 
-		fmt.Println("Recent additions:")
+		// Collect all records first to avoid nested queries
+		var records []OwnershipRecord
 		for rows.Next() {
 			var rec OwnershipRecord
 			var purchaseDate, formatDetail, notes sql.NullString
 			err := rows.Scan(&rec.ID, &rec.Artist, &rec.Title, &rec.Format, &purchaseDate, &formatDetail, &notes)
 			if err != nil {
+				rows.Close()
 				return err
 			}
 			if purchaseDate.Valid {
@@ -73,6 +74,51 @@ var recentCmd = &cobra.Command{
 			if notes.Valid {
 				rec.Notes = &notes.String
 			}
+			records = append(records, rec)
+		}
+		rows.Close()
+
+		if err := rows.Err(); err != nil {
+			return err
+		}
+
+		// Fetch all tags in one query for efficiency
+		tagMap := make(map[int64][]string)
+		if len(records) > 0 {
+			ownershipIDs := make([]interface{}, len(records))
+			for i, rec := range records {
+				ownershipIDs[i] = rec.ID
+			}
+
+			tagQuery := `SELECT ot.ownership_id, t.name 
+				FROM ownership_tags ot 
+				JOIN tags t ON ot.tag_id = t.id 
+				WHERE ot.ownership_id IN (?` + strings.Repeat(",?", len(ownershipIDs)-1) + `)
+				ORDER BY t.name`
+
+			tagRows, err := database.Query(tagQuery, ownershipIDs...)
+			if err != nil {
+				return err
+			}
+
+			for tagRows.Next() {
+				var ownershipID int64
+				var tagName string
+				if err := tagRows.Scan(&ownershipID, &tagName); err != nil {
+					tagRows.Close()
+					return err
+				}
+				tagMap[ownershipID] = append(tagMap[ownershipID], tagName)
+			}
+			tagRows.Close()
+
+			if err := tagRows.Err(); err != nil {
+				return err
+			}
+		}
+
+		fmt.Println("Recent additions:")
+		for _, rec := range records {
 			fmt.Printf("ID %d: %s - %s (%s", rec.ID, rec.Artist, rec.Title, rec.Format)
 			if rec.FormatDetail != nil {
 				fmt.Printf(", %s", *rec.FormatDetail)
@@ -86,11 +132,8 @@ var recentCmd = &cobra.Command{
 				fmt.Printf(", notes: %s", notesStr)
 			}
 			
-			// Get and display tags
-			tagList, err := db.GetTagsForOwnership(database, int64(rec.ID))
-			if err != nil {
-				return err
-			}
+			// Get tags from map (already fetched in single query)
+			tagList := tagMap[int64(rec.ID)]
 			if len(tagList) > 0 {
 				fmt.Printf(", tags: [%s]", strings.Join(tagList, ", "))
 			}
@@ -100,7 +143,7 @@ var recentCmd = &cobra.Command{
 			}
 			fmt.Println(")")
 		}
-		return rows.Err()
+		return nil
 	},
 }
 
