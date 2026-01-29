@@ -15,13 +15,15 @@ var portCmd = &cobra.Command{
 	Use:   "port <search-string> <tag>",
 	Short: "Extract notes patterns and convert to tags",
 	Long: `Search for an exact string in notes and add a tag to matching ownership records.
+By default, the search string is removed from notes after tagging.
+Use --keep to preserve the original notes.
 Example: musiccat port "Missing sleeve" "missing-sleeve"`,
 	Args: cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		searchString := args[0]
 		tagName := args[1]
 		
-		removeFlag, _ := cmd.Flags().GetBool("remove")
+		keepFlag, _ := cmd.Flags().GetBool("keep")
 
 		// Open DB
 		database, err := db.OpenDB()
@@ -95,13 +97,13 @@ Example: musiccat port "Missing sleeve" "missing-sleeve"`,
 		// Process all matches
 		count := 0
 		for _, m := range matches {
-			// Add the tag
+			// Add the tag (INSERT OR IGNORE handles duplicates gracefully)
 			if err := db.AddTagToOwnership(database, int64(m.ownershipID), tagID); err != nil {
 				return err
 			}
 
-			// Optionally remove the string from notes
-			if removeFlag {
+			// Remove the string from notes unless --keep is specified
+			if !keepFlag {
 				newNotes := strings.ReplaceAll(m.notes, searchString, "")
 				// Clean up any double spaces or leading/trailing spaces
 				newNotes = strings.TrimSpace(strings.Join(strings.Fields(newNotes), " "))
@@ -134,6 +136,6 @@ Example: musiccat port "Missing sleeve" "missing-sleeve"`,
 }
 
 func init() {
-	portCmd.Flags().Bool("remove", false, "Remove the search string from notes after tagging")
+	portCmd.Flags().Bool("keep", false, "Keep the search string in notes (by default it's removed)")
 	rootCmd.AddCommand(portCmd)
 }
