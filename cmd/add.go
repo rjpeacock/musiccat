@@ -33,15 +33,19 @@ var addCmd = &cobra.Command{
 		desc, _ := cmd.Flags().GetBool("desc")
 		albumOnly, _ := cmd.Flags().GetBool("album")
 		singleOnly, _ := cmd.Flags().GetBool("single")
+		epOnly, _ := cmd.Flags().GetBool("ep")
+		compilationOnly, _ := cmd.Flags().GetBool("compilation")
+		liveOnly, _ := cmd.Flags().GetBool("live")
+		soundtrackOnly, _ := cmd.Flags().GetBool("soundtrack")
 		year, _ := cmd.Flags().GetInt("year")
 		titleFilter, _ := cmd.Flags().GetString("title")
 		pirateFlag, _ := cmd.Flags().GetBool("pirate")
 
-		return addFromMusicBrainz(artistName, pageSize, sortFields, desc, albumOnly, singleOnly, year, titleFilter, pirateFlag)
+		return addFromMusicBrainz(artistName, pageSize, sortFields, desc, albumOnly, singleOnly, epOnly, compilationOnly, liveOnly, soundtrackOnly, year, titleFilter, pirateFlag)
 	},
 }
 
-func addFromMusicBrainz(artistName string, pageSize int, sortFields string, desc bool, albumOnly, singleOnly bool, year int, titleFilter string, pirateFlag bool) error {
+func addFromMusicBrainz(artistName string, pageSize int, sortFields string, desc bool, albumOnly, singleOnly, epOnly, compilationOnly, liveOnly, soundtrackOnly bool, year int, titleFilter string, pirateFlag bool) error {
 	// Load config for current format
 	cfg, err := config.LoadConfig()
 	if err != nil {
@@ -87,7 +91,7 @@ func addFromMusicBrainz(artistName string, pageSize int, sortFields string, desc
 	}
 
 	// Search release groups with filters applied via API query
-	allReleaseGroups, err := musicbrainz.SearchReleaseGroups(selectedArtist.ID, albumOnly, singleOnly, year, titleFilter, 0)
+	allReleaseGroups, err := musicbrainz.SearchReleaseGroups(selectedArtist.ID, albumOnly, singleOnly, epOnly, compilationOnly, liveOnly, soundtrackOnly, year, titleFilter, 0)
 	if err != nil {
 		return err
 	}
@@ -111,7 +115,7 @@ func addFromMusicBrainz(artistName string, pageSize int, sortFields string, desc
 			// Fetch more results from API
 			fmt.Println("Fetching more results...")
 			offset := len(allReleaseGroups)
-			moreGroups, err := musicbrainz.SearchReleaseGroups(selectedArtist.ID, albumOnly, singleOnly, year, titleFilter, offset)
+			moreGroups, err := musicbrainz.SearchReleaseGroups(selectedArtist.ID, albumOnly, singleOnly, epOnly, compilationOnly, liveOnly, soundtrackOnly, year, titleFilter, offset)
 			if err != nil {
 				fmt.Printf("Error fetching more results: %v\n", err)
 				continue
@@ -257,6 +261,10 @@ func init() {
 	addCmd.Flags().Bool("desc", false, "Reverse sort order")
 	addCmd.Flags().Bool("album", false, "Show only albums")
 	addCmd.Flags().Bool("single", false, "Show only singles")
+	addCmd.Flags().Bool("ep", false, "Show only EPs")
+	addCmd.Flags().Bool("compilation", false, "Show only compilations")
+	addCmd.Flags().Bool("live", false, "Show only live albums")
+	addCmd.Flags().Bool("soundtrack", false, "Show only soundtracks")
 	addCmd.Flags().Int("year", 0, "Filter by specific release year")
 	addCmd.Flags().String("title", "", "Filter by release title (partial match)")
 	addCmd.Flags().Bool("pirate", false, "Mark releases as pirate copies")

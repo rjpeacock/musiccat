@@ -53,7 +53,11 @@ func SelectReleasesWithPagination(releaseGroups []musicbrainz.ReleaseGroup, page
 			}
 			typeStr := ""
 			if rg.PrimaryType != "" {
-				typeStr = " [" + rg.PrimaryType + "]"
+				typeStr = " [" + rg.PrimaryType
+				if len(rg.SecondaryTypes) > 0 {
+					typeStr += " + " + strings.Join(rg.SecondaryTypes, ", ")
+				}
+				typeStr += "]"
 			}
 			fmt.Printf("%d. %s%s%s\n", num, rg.Title, yearStr, typeStr)
 		}

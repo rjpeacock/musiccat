@@ -30,16 +30,14 @@ func CompareByDefaultOrder(a, b musicbrainz.ReleaseGroup, desc bool) bool {
 
 	// If both are the same type, prioritize pure types over secondary-typed releases
 	// (e.g., pure Album before Album+Compilation)
-	if aTypeOrder == bTypeOrder {
-		aHasSecondary := len(a.SecondaryTypes) > 0
-		bHasSecondary := len(b.SecondaryTypes) > 0
-		
-		if aHasSecondary != bHasSecondary {
-			if desc {
-				return aHasSecondary // With secondary comes first when desc
-			}
-			return !aHasSecondary // Pure comes first when ascending
+	aHasSecondary := len(a.SecondaryTypes) > 0
+	bHasSecondary := len(b.SecondaryTypes) > 0
+	
+	if aHasSecondary != bHasSecondary {
+		if desc {
+			return aHasSecondary // With secondary comes first when desc
 		}
+		return !aHasSecondary // Pure comes first when ascending
 	}
 
 	// Secondary: year

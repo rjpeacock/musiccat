@@ -9,15 +9,29 @@ import (
 // SearchReleaseGroups searches for release groups by artist ID on MusicBrainz.
 // All filter parameters are optional - pass zero values to skip filtering.
 // offset specifies the starting position for pagination (0 for first page, 100 for second, etc.)
-func SearchReleaseGroups(artistID string, albumOnly, singleOnly bool, year int, titleFilter string, offset int) ([]ReleaseGroup, error) {
+func SearchReleaseGroups(artistID string, albumOnly, singleOnly, epOnly, compilationOnly, liveOnly, soundtrackOnly bool, year int, titleFilter string, offset int) ([]ReleaseGroup, error) {
 	// Build query with filters
 	query := fmt.Sprintf("arid:%s", artistID)
 
 	// Add type filters
-	if albumOnly && !singleOnly {
-		query += " AND type:album"
-	} else if singleOnly && !albumOnly {
+	if albumOnly && !singleOnly && !epOnly {
+		// When searching for albums only, exclude compilations, live, soundtracks, etc.
+		query += " AND type:album AND NOT (secondarytype:compilation OR secondarytype:live OR secondarytype:soundtrack OR secondarytype:interview OR secondarytype:spokenword OR secondarytype:audiobook)"
+	} else if singleOnly && !albumOnly && !epOnly {
 		query += " AND type:single"
+	} else if epOnly && !albumOnly && !singleOnly {
+		query += " AND type:ep"
+	}
+
+	// Add secondary type filters
+	if compilationOnly {
+		query += " AND secondarytype:compilation"
+	}
+	if liveOnly {
+		query += " AND secondarytype:live"
+	}
+	if soundtrackOnly {
+		query += " AND secondarytype:soundtrack"
 	}
 
 	// Add year filter
