@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"musiccat/cmd/helpers"
 	"musiccat/external/musicbrainz"
 	"musiccat/internal/config"
 	"musiccat/internal/db"
@@ -12,8 +13,9 @@ import (
 )
 
 var addCmd = &cobra.Command{
-	Use:   `add "<artist name>"`,
-	Short: "Search and add releases by artist",
+	Use:     `add "<artist name>"`,
+	Aliases: []string{"a"},
+	Short:   "Search and add releases by artist",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		manual, _ := cmd.Flags().GetBool("manual")
 		if manual {
@@ -29,17 +31,21 @@ var addCmd = &cobra.Command{
 		pageSize, _ := cmd.Flags().GetInt("page-size")
 		sortFields, _ := cmd.Flags().GetString("sort")
 		desc, _ := cmd.Flags().GetBool("desc")
-		albumOnly, _ := cmd.Flags().GetBool("album-only")
-		singleOnly, _ := cmd.Flags().GetBool("single-only")
+		albumOnly, _ := cmd.Flags().GetBool("album")
+		singleOnly, _ := cmd.Flags().GetBool("single")
+		epOnly, _ := cmd.Flags().GetBool("ep")
+		compilationOnly, _ := cmd.Flags().GetBool("compilation")
+		liveOnly, _ := cmd.Flags().GetBool("live")
+		soundtrackOnly, _ := cmd.Flags().GetBool("soundtrack")
 		year, _ := cmd.Flags().GetInt("year")
 		titleFilter, _ := cmd.Flags().GetString("title")
 		pirateFlag, _ := cmd.Flags().GetBool("pirate")
 
-		return addFromMusicBrainz(artistName, pageSize, sortFields, desc, albumOnly, singleOnly, year, titleFilter, pirateFlag)
+		return addFromMusicBrainz(artistName, pageSize, sortFields, desc, albumOnly, singleOnly, epOnly, compilationOnly, liveOnly, soundtrackOnly, year, titleFilter, pirateFlag)
 	},
 }
 
-func addFromMusicBrainz(artistName string, pageSize int, sortFields string, desc bool, albumOnly, singleOnly bool, year int, titleFilter string, pirateFlag bool) error {
+func addFromMusicBrainz(artistName string, pageSize int, sortFields string, desc bool, albumOnly, singleOnly, epOnly, compilationOnly, liveOnly, soundtrackOnly bool, year int, titleFilter string, pirateFlag bool) error {
 	// Load config for current format
 	cfg, err := config.LoadConfig()
 	if err != nil {
@@ -79,13 +85,13 @@ func addFromMusicBrainz(artistName string, pageSize int, sortFields string, desc
 		}
 		fmt.Printf("%d. %s%s\n", i+1, artist.Name, disamb)
 	}
-	selectedArtist, err := selectItem("Select artist (number): ", artists)
+	selectedArtist, err := helpers.SelectItem("Select artist (number): ", artists)
 	if err != nil {
 		return err
 	}
 
 	// Search release groups with filters applied via API query
-	allReleaseGroups, err := musicbrainz.SearchReleaseGroups(selectedArtist.ID, albumOnly, singleOnly, year, titleFilter, 0)
+	allReleaseGroups, err := musicbrainz.SearchReleaseGroups(selectedArtist.ID, albumOnly, singleOnly, epOnly, compilationOnly, liveOnly, soundtrackOnly, year, titleFilter, 0)
 	if err != nil {
 		return err
 	}
@@ -94,14 +100,14 @@ func addFromMusicBrainz(artistName string, pageSize int, sortFields string, desc
 	}
 
 	// Apply sorting
-	sortFieldsSlice := parseSortFields(sortFields)
-	allReleaseGroups = SortReleaseGroups(allReleaseGroups, sortFieldsSlice, desc)
+	sortFieldsSlice := helpers.ParseSortFields(sortFields)
+	allReleaseGroups = helpers.SortReleaseGroups(allReleaseGroups, sortFieldsSlice, desc)
 
 	// Display and select releases, fetching more if needed
-	var selectedItems []SelectionItem
+	var selectedItems []helpers.SelectionItem
 	currentPage := 0
 	for {
-		items, needMore, _, err := selectReleasesWithPagination(allReleaseGroups, pageSize, cfg.CurrentFormat, albumOnly, singleOnly, year, titleFilter, currentPage)
+		items, needMore, _, err := helpers.SelectReleasesWithPagination(allReleaseGroups, pageSize, cfg.CurrentFormat, albumOnly, singleOnly, year, titleFilter, currentPage)
 		if err != nil {
 			return err
 		}
@@ -109,7 +115,7 @@ func addFromMusicBrainz(artistName string, pageSize int, sortFields string, desc
 			// Fetch more results from API
 			fmt.Println("Fetching more results...")
 			offset := len(allReleaseGroups)
-			moreGroups, err := musicbrainz.SearchReleaseGroups(selectedArtist.ID, albumOnly, singleOnly, year, titleFilter, offset)
+			moreGroups, err := musicbrainz.SearchReleaseGroups(selectedArtist.ID, albumOnly, singleOnly, epOnly, compilationOnly, liveOnly, soundtrackOnly, year, titleFilter, offset)
 			if err != nil {
 				fmt.Printf("Error fetching more results: %v\n", err)
 				continue
@@ -119,7 +125,7 @@ func addFromMusicBrainz(artistName string, pageSize int, sortFields string, desc
 				continue
 			}
 			// Sort the new batch and append (don't re-sort everything to keep stable numbering)
-			moreGroups = SortReleaseGroups(moreGroups, sortFieldsSlice, desc)
+			moreGroups = helpers.SortReleaseGroups(moreGroups, sortFieldsSlice, desc)
 			allReleaseGroups = append(allReleaseGroups, moreGroups...)
 			// Continue from the first page of newly fetched results
 			currentPage = offset / pageSize
@@ -132,27 +138,27 @@ func addFromMusicBrainz(artistName string, pageSize int, sortFields string, desc
 	// Insert each selected release and ownership
 	totalAdded := 0
 	for _, item := range selectedItems {
-		rg := item.releaseGroup
-		var releaseYear *int = parseYear(rg.FirstReleaseDate)
+		rg := item.ReleaseGroup
+		var releaseYear *int = helpers.ParseYear(rg.FirstReleaseDate)
 		releaseID, err := db.InsertRelease(database, selectedArtist.Name, rg.Title, releaseYear, &rg.ID)
 		if err != nil {
 			return err
 		}
 
 		// Insert multiple ownership entries if quantity > 1
-		for i := 0; i < item.quantity; i++ {
+		for i := 0; i < item.Quantity; i++ {
 			var notes *string
 
 			// Prompt for notes for each copy if quantity > 1
-			if item.quantity > 1 {
-				prompt := fmt.Sprintf("Notes for copy %d/%d of %s (optional): ", i+1, item.quantity, rg.Title)
-				noteStr := promptString(prompt)
+			if item.Quantity > 1 {
+				prompt := fmt.Sprintf("Notes for copy %d/%d of %s (optional): ", i+1, item.Quantity, rg.Title)
+				noteStr := helpers.PromptString(prompt)
 				if noteStr != "" {
 					notes = &noteStr
 				}
-			} else if item.notes != "" {
+			} else if item.Notes != "" {
 				// Use existing notes for single copy
-				notes = &item.notes
+				notes = &item.Notes
 			}
 
 			// Auto-set format detail based on type and format category
@@ -164,8 +170,15 @@ func addFromMusicBrainz(artistName string, pageSize int, sortFields string, desc
 				}
 			}
 
-			finalPirate := item.pirate || pirateFlag
-			_, err = db.InsertOwnership(database, releaseID, cfg.CurrentFormat, formatDetail, nil, nil, nil, notes, nil, item.promo, finalPirate)
+			finalPirate := item.Pirate || pirateFlag
+			_, err = db.InsertOwnership(database, db.OwnershipInput{
+				ReleaseID:      releaseID,
+				FormatCategory: cfg.CurrentFormat,
+				FormatDetail:   formatDetail,
+				Notes:          notes,
+				IsPromo:        item.Promo,
+				IsPirate:       finalPirate,
+			})
 			if err != nil {
 				return err
 			}
@@ -191,11 +204,11 @@ func addManual() error {
 	}
 
 	// Prompts
-	artist := promptString("Artist: ")
-	title := promptString("Title: ")
-	manualYear := promptOptionalInt("Year (optional): ")
-	formatCategory := promptValidFormat("Format category (CD, Vinyl, Cassette): ")
-	formatDetailInput := promptFormatDetail(formatCategory)
+	artist := helpers.PromptString("Artist: ")
+	title := helpers.PromptString("Title: ")
+	manualYear := helpers.PromptOptionalInt("Year (optional): ")
+	formatCategory := helpers.PromptValidFormat("Format category (CD, Vinyl, Cassette): ")
+	formatDetailInput := helpers.PromptFormatDetail(formatCategory)
 	var formatDetail *string
 	if formatDetailInput != "" {
 		formatDetail = &formatDetailInput
@@ -208,7 +221,11 @@ func addManual() error {
 	}
 
 	// Insert ownership
-	_, err = db.InsertOwnership(database, id, formatCategory, formatDetail, nil, nil, nil, nil, nil, false, false)
+	_, err = db.InsertOwnership(database, db.OwnershipInput{
+		ReleaseID:      id,
+		FormatCategory: formatCategory,
+		FormatDetail:   formatDetail,
+	})
 	if err != nil {
 		return err
 	}
@@ -242,10 +259,20 @@ func init() {
 	addCmd.Flags().Int("page-size", 50, "Number of releases per page")
 	addCmd.Flags().String("sort", "", "Sort by field(s): type, year, title (comma-separated)")
 	addCmd.Flags().Bool("desc", false, "Reverse sort order")
-	addCmd.Flags().Bool("album-only", false, "Show only albums")
-	addCmd.Flags().Bool("single-only", false, "Show only singles")
+	addCmd.Flags().Bool("album", false, "Show only albums")
+	addCmd.Flags().Bool("single", false, "Show only singles")
+	addCmd.Flags().Bool("ep", false, "Show only EPs")
+	addCmd.Flags().Bool("compilation", false, "Show only compilations")
+	addCmd.Flags().Bool("live", false, "Show only live albums")
+	addCmd.Flags().Bool("soundtrack", false, "Show only soundtracks")
 	addCmd.Flags().Int("year", 0, "Filter by specific release year")
 	addCmd.Flags().String("title", "", "Filter by release title (partial match)")
 	addCmd.Flags().Bool("pirate", false, "Mark releases as pirate copies")
+	
+	// Shell completions
+	addCmd.RegisterFlagCompletionFunc("sort", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return []string{"type", "year", "title", "type,year", "type,year,title"}, cobra.ShellCompDirectiveNoFileComp
+	})
+	
 	rootCmd.AddCommand(addCmd)
 }

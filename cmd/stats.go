@@ -9,8 +9,9 @@ import (
 )
 
 var statsCmd = &cobra.Command{
-	Use:   "stats",
-	Short: "Show collection statistics",
+	Use:     "stats",
+	Aliases: []string{"st"},
+	Short:   "Show collection statistics",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Open DB
 		database, err := db.OpenDB()
@@ -87,34 +88,35 @@ var statsCmd = &cobra.Command{
 			return err
 		}
 
-		fmt.Printf("\nTotal spend: $%.2f\n", totalSpend)
+		fmt.Printf("\nTotal spend: £%.2f\n", totalSpend)
 
-		// Top 5 artists by items owned
+		// Top 10 artists by weighted points (3 pts per album, 1 pt per other item)
 		artistRows, err := database.Query(`
 			SELECT r.artist, 
+			       SUM(CASE WHEN o.format_detail = 'Album' THEN 3 ELSE 1 END) as points,
 			       COUNT(*) as total,
 			       SUM(CASE WHEN o.format_detail = 'Album' THEN 1 ELSE 0 END) as albums,
 			       SUM(CASE WHEN o.format_detail = 'Single' THEN 1 ELSE 0 END) as singles
 			FROM ownership o
 			JOIN releases r ON o.release_id = r.id
 			GROUP BY r.artist
-			ORDER BY total DESC
-			LIMIT 5
+			ORDER BY points DESC
+			LIMIT 10
 		`)
 		if err != nil {
 			return err
 		}
 		defer artistRows.Close()
 
-		fmt.Println("\nTop 5 artists by items owned:")
+		fmt.Println("\nTop 10 artists by points (3 pts/album, 1 pt/other):")
 		for artistRows.Next() {
 			var artist string
-			var total, albums, singles int
-			err := artistRows.Scan(&artist, &total, &albums, &singles)
+			var points, total, albums, singles int
+			err := artistRows.Scan(&artist, &points, &total, &albums, &singles)
 			if err != nil {
 				return err
 			}
-			fmt.Printf("  %s: %d total (%d albums, %d singles)\n", artist, total, albums, singles)
+			fmt.Printf("  %s: %d pts - %d total (%d albums, %d singles)\n", artist, points, total, albums, singles)
 		}
 
 		return nil
