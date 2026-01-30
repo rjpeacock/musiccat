@@ -19,8 +19,9 @@ type ReleaseGroupSearchResponse struct {
 
 // ReleaseGroup represents a MusicBrainz release group
 type ReleaseGroup struct {
-	ID               string `json:"id"`
-	Title            string `json:"title"`
-	FirstReleaseDate string `json:"first-release-date"`
-	PrimaryType      string `json:"primary-type"`
+	ID               string   `json:"id"`
+	Title            string   `json:"title"`
+	FirstReleaseDate string   `json:"first-release-date"`
+	PrimaryType      string   `json:"primary-type"`
+	SecondaryTypes   []string `json:"secondary-types"`
 }

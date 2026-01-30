@@ -4,7 +4,7 @@ import "musiccat/external/musicbrainz"
 
 // CompareByDefaultOrder implements the default sorting logic
 func CompareByDefaultOrder(a, b musicbrainz.ReleaseGroup, desc bool) bool {
-	// Primary: release type
+	// Primary: release type (with pure albums before albums with secondary types)
 	typeOrder := map[string]int{
 		"Album":  1,
 		"EP":     2,
@@ -26,6 +26,20 @@ func CompareByDefaultOrder(a, b musicbrainz.ReleaseGroup, desc bool) bool {
 			return aTypeOrder > bTypeOrder
 		}
 		return aTypeOrder < bTypeOrder
+	}
+
+	// If both are the same type, prioritize pure types over secondary-typed releases
+	// (e.g., pure Album before Album+Compilation)
+	if aTypeOrder == bTypeOrder {
+		aHasSecondary := len(a.SecondaryTypes) > 0
+		bHasSecondary := len(b.SecondaryTypes) > 0
+		
+		if aHasSecondary != bHasSecondary {
+			if desc {
+				return aHasSecondary // With secondary comes first when desc
+			}
+			return !aHasSecondary // Pure comes first when ascending
+		}
 	}
 
 	// Secondary: year
