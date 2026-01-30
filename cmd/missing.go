@@ -173,15 +173,8 @@ func contains(slice []string, item string) bool {
 }
 
 func init() {
-	missingCmd.Flags().Bool("exact", false, "Exact artist name match")
-	missingCmd.Flags().Bool("album", false, "Show only albums (excludes compilations, live, soundtracks)")
-	missingCmd.Flags().Bool("single", false, "Show only singles")
-	missingCmd.Flags().Bool("ep", false, "Show only EPs")
-	missingCmd.Flags().Bool("compilation", false, "Show only compilations")
-	missingCmd.Flags().Bool("live", false, "Show only live albums")
-	missingCmd.Flags().Bool("soundtrack", false, "Show only soundtracks")
-	missingCmd.Flags().Int("year", 0, "Filter by release year")
-	missingCmd.Flags().String("title", "", "Filter by title (partial match)")
+	// Add common release group filter flags
+	ReleaseGroupFilterFlags(missingCmd)
 
 	rootCmd.AddCommand(missingCmd)
 }

@@ -259,15 +259,10 @@ func init() {
 	addCmd.Flags().Int("page-size", 50, "Number of releases per page")
 	addCmd.Flags().String("sort", "", "Sort by field(s): type, year, title (comma-separated)")
 	addCmd.Flags().Bool("desc", false, "Reverse sort order")
-	addCmd.Flags().Bool("album", false, "Show only albums")
-	addCmd.Flags().Bool("single", false, "Show only singles")
-	addCmd.Flags().Bool("ep", false, "Show only EPs")
-	addCmd.Flags().Bool("compilation", false, "Show only compilations")
-	addCmd.Flags().Bool("live", false, "Show only live albums")
-	addCmd.Flags().Bool("soundtrack", false, "Show only soundtracks")
-	addCmd.Flags().Int("year", 0, "Filter by specific release year")
-	addCmd.Flags().String("title", "", "Filter by release title (partial match)")
 	addCmd.Flags().Bool("pirate", false, "Mark releases as pirate copies")
+	
+	// Add common release group filter flags
+	ReleaseGroupFilterFlags(addCmd)
 	
 	// Shell completions
 	addCmd.RegisterFlagCompletionFunc("sort", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
