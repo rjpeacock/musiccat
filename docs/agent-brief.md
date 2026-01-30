@@ -92,17 +92,35 @@ Agents must read:
 | `id` | INTEGER PRIMARY KEY | |
 | `release_id` | INTEGER NOT NULL | FK → releases.id |
 | `format_category` | TEXT NOT NULL | CD, Vinyl, Tape, Digital |
-| `format_detail` | TEXT | nullable (7", 12", LP, etc.) |
-| `purchase_date` | TEXT | nullable |
+| `format_detail` | TEXT | nullable (7", 12", Album, Single, EP, etc.) |
+| `acquired_date` | TEXT | nullable |
 | `cost` | REAL | nullable |
 | `source` | TEXT | nullable |
 | `notes` | TEXT | nullable |
 | `discogs_release_id` | INTEGER | nullable |
+| `is_promo` | BOOLEAN | default FALSE |
+| `is_pirate` | BOOLEAN | default FALSE |
+
+### `tags`
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `id` | INTEGER PRIMARY KEY | |
+| `name` | TEXT NOT NULL UNIQUE | Canonical tag name (lowercase, hyphenated) |
+
+### `ownership_tags`
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `ownership_id` | INTEGER NOT NULL | FK → ownership.id |
+| `tag_id` | INTEGER NOT NULL | FK → tags.id |
+| UNIQUE(ownership_id, tag_id) | | Prevents duplicate tags |
 
 **Notes:**
 
 - Each physical/digital copy is a separate ownership row
 - No quantity field
+- Tags are canonicalized: lowercase, trimmed, spaces → hyphens, collapsed separators
 
 ## Configuration
 
@@ -126,15 +144,32 @@ Agents must read:
 - Search MusicBrainz for artists
 - User selects correct artist
 - Fetch release groups for that artist
-- Display: title, year, release group type
+- Display: title, year, release type (with secondary types if present)
 - User selects one or more release groups
 - Support for quantities: `1(2)` for 2 copies of item 1
 - Support for promo marking: `1p,2,3p` for promo variants
+- Support for pirate marking: `1i,2,3i` for pirate copies
 - Optional variant notes when quantity > 1
 - Insert into `releases` if not present
 - Insert multiple `ownership` rows for variants
 - No confirmation prompts
 - Mistakes handled via `recent` / `undo`
+
+**Flags:**
+
+- `--exact`: Exact artist name matching (filter results client-side)
+- `--album`: Show only pure studio albums (excludes compilations, live, soundtracks)
+- `--single`: Show only singles
+- `--ep`: Show only EPs
+- `--compilation`: Show only compilations
+- `--live`: Show only live albums
+- `--soundtrack`: Show only soundtracks
+- `--year <YYYY>`: Filter by release year
+- `--title <string>`: Filter by title (partial match)
+- `--page-size <int>`: Results per page (default: 50)
+- `--sort <fields>`: Sort by fields (type, year, title)
+- `--desc`: Reverse sort order
+- `--pirate`: Mark all selected releases as pirate copies
 
 ### 3. `musiccat add --manual`
 
@@ -162,14 +197,18 @@ For releases not in MusicBrainz:
 - Locate matching ownership rows
 - Prompt user if multiple matches
 - Update:
-  - `purchase_date`, `cost`, `source`, `notes`
-  - `format_category`, `format_detail`
-  - release fields: `artist`, `title`, `year`, `musicbrainz_release_group_id`
+  - Ownership fields: `acquired_date`, `cost`, `source`, `notes`, `format_category`, `format_detail`, `is_promo`, `is_pirate`
+  - Release fields: `artist`, `title`, `year`, `musicbrainz_release_group_id`
+- Tag management:
+  - `--tag <tagname>`: Add tag (repeatable)
+  - `--remove-tag <tagname>`: Remove tag (repeatable)
+  - `--set-tag <tagname>`: Replace all tags with specified tags (repeatable)
 
 ### 6. `musiccat recent [--format <FORMAT>]`
 
-- Show last 10 (default) ownership additions
+- Show last 10 (default) ownership additions with tags
 - Optional format filter
+- Display: ID, Artist, Title, Year, Format, Format Detail, Tags
 - Display ownership IDs for undo
 
 ### 7. `musiccat undo <ID | all>`
@@ -178,17 +217,47 @@ For releases not in MusicBrainz:
 - `all` undoes the most recent batch
 - Optional confirmation when multiple rows deleted
 
+### 8. `musiccat tag <subcommand>`
+
+**Subcommands:**
+
+- `rename <old> <new>`: Rename a tag (updates all ownership records)
+- `delete <tagname>`: Delete a tag (removes from all ownership records)
+
+### 9. `musiccat port [--pattern <regex>] [--keep]`
+
+- Migrate notes patterns to tags
+- Default: migrates all non-empty notes to tags
+- `--pattern <regex>`: Extract specific patterns from notes
+- `--keep`: Keep extracted text in notes (default: remove)
+- Creates tags from matches (canonicalized)
+- Idempotent: can be re-run without duplicating tags
+
 ---
 
 ## Format Conventions
 
 ### Format Categories and Details
 
-**CD**: Album, Single, EP, Maxi-Single, Promo, Digipak, Jewel Case
+**CD**: Album, Single, EP, Maxi (no "CD" prefix)
 
-**Vinyl**: LP, 12", 10", 7", Single, EP, Picture Disc, Colored Vinyl
+**Vinyl**: 
+- Singles: 7"
+- EPs: 7" or 12"
+- Albums: 12" or Album
+- Maxi-Singles: 12"
 
 **Cassette**: Album, Single, Tape, Cassette
+
+### Format Detail Inference
+
+- CD Singles → "Single"
+- CD EPs → "EP"  
+- CD Albums → "Album"
+- CD Maxi-Singles → "Maxi"
+- Vinyl Singles → "7""
+- Vinyl EPs → "7"" or "12"" based on context
+- Vinyl Albums → "12"" or "Album"
 
 ### Multi-Variant Support
 
@@ -205,10 +274,11 @@ Phase 2 focuses on **using and inspecting the catalogue**, not expanding externa
 
 ### In Scope
 
-- Smarter listing and filtering
+- Smarter listing and filtering with tags
 - Stable ID-based workflows
-- Sorting
+- Sorting (default: year)
 - Collection statistics
+- Tag management (rename, delete, port from notes)
 
 ### Out of Scope
 
@@ -227,11 +297,14 @@ Phase 2 focuses on **using and inspecting the catalogue**, not expanding externa
 
 - Always display ownership IDs
 - IDs must be usable with `update` and `undo`
+- Display tags at the end of each line
 
 Example:
 
-ID Artist Title Year Format Promo
-14 Aerosmith Nine Lives 1997 CD no
+```
+ID  Artist     Title        Year  Format  Detail  Tags
+14  Aerosmith  Nine Lives   1997  CD      Album   grunge,promo
+```
 
 ---
 
@@ -240,48 +313,50 @@ ID Artist Title Year Format Promo
 Optional flags:
 
 - `--artist <string>` (partial, case-insensitive)
+- `--title <string>` (partial, case-insensitive)
+- `--year <YYYY>`
 - `--format <FORMAT>`
-- `--promo`
-- `--source <string>`
-- `--notes <string>`
+- `--tag <tagname>` (canonical form)
 
-Filters must be composable.
+Filters are composable (AND logic).
 
 ---
 
 #### 1.3 Sorting
 
-Flags:
-
-- `--sort <field>`
-  - `artist`
-  - `title`
-  - `year`
-  - `format`
-  - `added` (default)
-- `--desc`
+- Default sort: `year` (ascending)
+- `--sort <fields>`: Sort by comma-separated fields (id, artist, title, year, format, format_detail, added)
+- `--desc`: Reverse sort order
 
 ---
 
-### 2. `musiccat update` (Restricted)
+### 2. `musiccat update` (Enhanced)
 
-Only editable fields:
+Editable ownership fields:
 
-- `purchase_date`
+- `acquired_date`
 - `cost`
 - `source`
 - `notes`
 - `is_promo`
+- `is_pirate`
+- `format_category`
 - `format_detail`
 
-Non-editable by default:
+Editable release fields (with confirmation):
 
-- artist
-- title
-- year
-- MusicBrainz release group ID
+- `artist`
+- `title`
+- `year`
+- `musicbrainz_release_group_id`
 
-Updates must be flag-driven.
+Tag management:
+
+- `--tag <tagname>`: Add tag (repeatable)
+- `--remove-tag <tagname>`: Remove tag (repeatable)
+- `--set-tag <tagname>`: Replace all tags (repeatable)
+
+Updates are flag-driven or prompted.
 
 ---
 
@@ -298,52 +373,85 @@ No external API calls.
 
 ### 4. `musiccat add` (pagination and sorting)
 
-Outputs:
+**Goal:** List release groups in a **predictable, user-friendly order** with graceful handling of large result sets.
 
-- release groups listed in a **predictable, user-friendly order** 
-- large result sets handled gracefully
+**Default Sort Order:**
 
-Default Sort Order
+1. **Pure releases first:** Albums without secondary types (no compilations/live/soundtracks) appear before albums with secondary types
+2. **Secondary:** First release year (ascending)
+3. **Tertiary:** Title (alphabetical)
 
-- **Primary:** release type (`Album` → `EP` → `Single` → `Other`)
-- **Secondary:** first release year (ascending)
-- **Tertiary:** title (alphabetical)
+**Display Format:**
 
-CLI Flags
+- Title, year, release type
+- Secondary types shown in brackets: `[Album + Compilation]`, `[Album + Live]`
 
-- `--sort <field>`: override default sorting
-  - `type`, `year`, `title`
-  - Can combine: `--sort type,year,title`
-- `--desc`: reverse sort order
+**CLI Flags:**
 
-Pagination
+- `--exact`: Exact artist name matching (case-insensitive)
+- `--album`: Show only pure studio albums (excludes compilations, live, soundtracks)
+- `--single`: Show only singles
+- `--ep`: Show only EPs
+- `--compilation`: Show only compilations
+- `--live`: Show only live albums
+- `--soundtrack`: Show only soundtracks
+- `--year <YYYY>`: Filter by release year
+- `--title <string>`: Filter by title (partial match)
+- `--page-size <int>`: Results per page (default: 50)
+- `--sort <fields>`: Sort by fields (type, year, title)
+- `--desc`: Reverse sort order
+- `--pirate`: Mark all selected releases as pirate copies
+
+**Pagination:**
 
 - Default page size: 50 items
 - User may fetch next page by entering `99`
 - CLI must indicate page number and total items if known
+**Pagination:**
 
-Optional Filters
+- Display results in pages (default: 50 per page)
+- Navigate with page numbers
+- Enter selections or next/previous page
 
-- `--album` / `--single`
-- `--year <YYYY>`
-- `--title <string>`: partial match on release title
+**Example CLI Flow:**
 
-### Example CLI Flow
-
+```
 mc add "Louis Armstrong" --page-size 40 --sort type,year,title
 Displaying 1–40 of 172 releases
 
 Album: What a Wonderful World (1967)
-
 Album: Hello, Dolly! (1964)
 ...
-
 Single: Hello, Dolly! (1964)
 
 Enter number(s) to select, or 99 to see next page:
+```
 
-- User may select multiple releases (e.g., `1,2,3p`)  
-- Selected releases are inserted into `releases` and `ownership` tables following existing Phase 1 logic
+- User may select multiple releases (e.g., `1,2,3p` for promo)
+- Selected releases are inserted into `releases` and `ownership` tables
+
+### 5. Tag System
+
+**Tag Canonicalization:**
+
+- Tags are stored in canonical form: lowercase, trimmed, spaces → hyphens
+- Multiple separators collapsed: `foo--bar` → `foo-bar`
+- Prevents duplicates: "Promo", "promo", and "PROMO" all become `promo`
+
+**Tag Management:**
+
+- `musiccat tag rename <old> <new>`: Rename a tag across all ownership records
+- `musiccat tag delete <tagname>`: Delete a tag from all ownership records
+- `musiccat port [--pattern <regex>] [--keep]`: Migrate notes patterns to tags
+- `musiccat update --tag <tagname>`: Add tags to ownership records
+- `musiccat update --remove-tag <tagname>`: Remove tags from ownership records
+- `musiccat update --set-tag <tagname>`: Replace all tags with specified tags
+
+**Tag Display:**
+
+- Tags are displayed at the end of each line in `list` and `recent` commands
+- Format: comma-separated, canonical form
+- Example: `promo,grunge,bootleg`
 
 ---
 
@@ -498,15 +606,26 @@ Commit the tests separately:
 
 - **Language:** Go
 - **CLI:** Cobra
-- **SQLite:** `github.com/mattn/go-sqlite3`
+- **SQLite:** `modernc.org/sqlite` (pure-Go, no cgo dependencies)
+- **Database Mode:** WAL mode with 5-second busy timeout
+- **Connection Pooling:** MaxOpenConns=10, MaxIdleConns=5
 - **HTTP:** `net/http` or `go-resty`
 - **JSON:** `encoding/json` or `go-resty`
 - **Code must compile at every commit**
+
+## Database Connection Management
+
+- **WAL Mode:** Enabled for concurrent reads/writes
+- **Busy Timeout:** 5 seconds to prevent lock errors
+- **Connection Pooling:** Prevents deadlocks from nested queries
+- **Query Pattern:** Collect-then-process to avoid N+1 queries with open result sets
+- **Bulk Fetching:** Use IN clauses and maps for efficient tag/metadata loading
 
 ## Commit Discipline
 
 - One concern per commit
 - Each commit must compile
+- Tests must pass before commit
 
 ## Non-Goals
 
