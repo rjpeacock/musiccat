@@ -11,11 +11,11 @@ func InferFormatDetail(releaseType, formatCategory string) string {
 	case "CD":
 		switch releaseType {
 		case "Single":
-			return "CD Single"
+			return "Single"
 		case "EP":
-			return "CD EP"
+			return "EP"
 		case "Album":
-			return "CD Album"
+			return "Album"
 		default:
 			return "CD"
 		}

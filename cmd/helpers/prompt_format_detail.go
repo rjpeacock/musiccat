@@ -6,7 +6,7 @@ import (
 )
 
 var formatDetailSuggestions = map[string][]string{
-	"CD":       {"CD Single", "CD Album", "CD EP", "CD Maxi"},
+	"CD":       {"Single", "Album", "EP", "Maxi"},
 	"Vinyl":    {"7\"", "10\"", "12\"", "LP"},
 	"Cassette": {"Cassette Single", "Cassette Album"},
 	"Digital":  {"MP3", "FLAC", "AAC"},
