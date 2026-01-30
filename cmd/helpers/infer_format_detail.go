@@ -6,51 +6,25 @@ func InferFormatDetail(releaseType, formatCategory string) string {
 		return ""
 	}
 
-	// Base suggestions by format category
-	switch formatCategory {
-	case "CD":
-		switch releaseType {
-		case "Single":
-			return "Single"
-		case "EP":
-			return "EP"
-		case "Album":
-			return "Album"
-		default:
-			return "CD"
-		}
-	case "Vinyl":
+	// Vinyl has special size-based format details
+	if formatCategory == "Vinyl" {
 		switch releaseType {
 		case "Single":
 			return "7\""
 		case "EP":
-			return "10\""
+			return "12\""
 		case "Album":
-			return "LP"
+			return "Album"
 		default:
 			return "Vinyl"
 		}
-	case "Cassette":
-		switch releaseType {
-		case "Single":
-			return "Cassette Single"
-		case "Album":
-			return "Cassette Album"
-		default:
-			return "Cassette"
-		}
-	case "Digital":
-		switch releaseType {
-		case "Single":
-			return "Digital Single"
-		case "EP":
-			return "Digital EP"
-		case "Album":
-			return "Digital Album"
-		default:
-			return "Digital"
-		}
+	}
+
+	// CD, Digital, Cassette all use release type as format detail
+	switch releaseType {
+	case "Single", "EP", "Album":
+		return releaseType
 	default:
-		return ""
+		return formatCategory
 	}
 }

@@ -10,31 +10,32 @@ func TestInferFormatDetail(t *testing.T) {
 		want           string
 	}{
 		// CD tests
-		{"CD Single", "Single", "CD", "CD Single"},
-		{"CD EP", "EP", "CD", "CD EP"},
-		{"CD Album", "Album", "CD", "CD Album"},
+		{"CD Single", "Single", "CD", "Single"},
+		{"CD EP", "EP", "CD", "EP"},
+		{"CD Album", "Album", "CD", "Album"},
 		{"CD other", "Other", "CD", "CD"},
 		
 		// Vinyl tests
 		{"Vinyl Single", "Single", "Vinyl", "7\""},
-		{"Vinyl EP", "EP", "Vinyl", "10\""},
-		{"Vinyl Album", "Album", "Vinyl", "LP"},
+		{"Vinyl EP", "EP", "Vinyl", "12\""},
+		{"Vinyl Album", "Album", "Vinyl", "Album"},
 		{"Vinyl other", "Other", "Vinyl", "Vinyl"},
 		
 		// Cassette tests
-		{"Cassette Single", "Single", "Cassette", "Cassette Single"},
-		{"Cassette Album", "Album", "Cassette", "Cassette Album"},
+		{"Cassette Single", "Single", "Cassette", "Single"},
+		{"Cassette Album", "Album", "Cassette", "Album"},
+		{"Cassette EP", "EP", "Cassette", "EP"},
 		{"Cassette other", "Other", "Cassette", "Cassette"},
 		
 		// Digital tests
-		{"Digital Single", "Single", "Digital", "Digital Single"},
-		{"Digital EP", "EP", "Digital", "Digital EP"},
-		{"Digital Album", "Album", "Digital", "Digital Album"},
+		{"Digital Single", "Single", "Digital", "Single"},
+		{"Digital EP", "EP", "Digital", "EP"},
+		{"Digital Album", "Album", "Digital", "Album"},
 		{"Digital other", "Other", "Digital", "Digital"},
 		
 		// Edge cases
 		{"empty category", "Album", "", ""},
-		{"unknown category", "Album", "Unknown", ""},
+		{"unknown category", "Album", "Unknown", "Album"},
 	}
 
 	for _, tt := range tests {
