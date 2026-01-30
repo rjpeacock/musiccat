@@ -324,7 +324,7 @@ Pagination
 
 Optional Filters
 
-- `--album-only` / `--single-only`
+- `--album` / `--single`
 - `--year <YYYY>`
 - `--title <string>`: partial match on release title
 
