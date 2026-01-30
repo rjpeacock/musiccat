@@ -269,7 +269,7 @@ func init() {
 	listCmd.Flags().Bool("promo", false, "Filter promo items only")
 	listCmd.Flags().String("source", "", "Filter by source (partial, case-insensitive)")
 	listCmd.Flags().String("notes", "", "Filter by notes (partial, case-insensitive)")
-	listCmd.Flags().String("sort", "added", "Sort by field (artist, title, year, format, added)")
+	listCmd.Flags().String("sort", "year", "Sort by field (artist, title, year, format, added)")
 	listCmd.Flags().Bool("desc", false, "Sort in descending order")
 	
 	// Shell completions
