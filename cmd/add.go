@@ -67,25 +67,8 @@ func addFromMusicBrainz(artistName string, pageSize int, sortFields string, desc
 		return err
 	}
 
-	// Search artists
-	artists, err := musicbrainz.SearchArtists(artistName)
-	if err != nil {
-		return err
-	}
-	if len(artists) == 0 {
-		return fmt.Errorf("no artists found for '%s'", artistName)
-	}
-
-	// Display and select artist
-	fmt.Println("Artists found:")
-	for i, artist := range artists {
-		disamb := ""
-		if artist.Disambiguation != "" {
-			disamb = " (" + artist.Disambiguation + ")"
-		}
-		fmt.Printf("%d. %s%s\n", i+1, artist.Name, disamb)
-	}
-	selectedArtist, err := helpers.SelectItem("Select artist (number): ", artists)
+	// Search and select artist with pagination
+	selectedArtist, err := helpers.SelectArtist(artistName)
 	if err != nil {
 		return err
 	}

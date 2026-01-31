@@ -49,25 +49,8 @@ func findMissingReleases(artistName string, exact bool, albumOnly, singleOnly, e
 		return err
 	}
 
-	// Search for artist on MusicBrainz (exact flag currently not implemented)
-	artists, err := musicbrainz.SearchArtists(artistName)
-	if err != nil {
-		return err
-	}
-	if len(artists) == 0 {
-		return fmt.Errorf("no artists found for '%s'", artistName)
-	}
-
-	// Display and select artist
-	fmt.Println("Artists found:")
-	for i, artist := range artists {
-		disamb := ""
-		if artist.Disambiguation != "" {
-			disamb = " (" + artist.Disambiguation + ")"
-		}
-		fmt.Printf("%d. %s%s\n", i+1, artist.Name, disamb)
-	}
-	selectedArtist, err := helpers.SelectItem("Select artist (number): ", artists)
+	// Search and select artist with pagination
+	selectedArtist, err := helpers.SelectArtist(artistName)
 	if err != nil {
 		return err
 	}
