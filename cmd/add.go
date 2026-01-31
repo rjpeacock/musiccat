@@ -186,34 +186,70 @@ func addManual() error {
 		return err
 	}
 
-	// Prompts
-	artist := helpers.PromptString("Artist: ")
-	title := helpers.PromptString("Title: ")
-	manualYear := helpers.PromptOptionalInt("Year (optional): ")
-	formatCategory := helpers.PromptValidFormat("Format category (CD, Vinyl, Cassette): ")
-	formatDetailInput := helpers.PromptFormatDetail(formatCategory)
-	var formatDetail *string
-	if formatDetailInput != "" {
-		formatDetail = &formatDetailInput
+	lastArtist := ""
+	
+	for {
+		// Prompts
+		var artist string
+		if lastArtist == "" {
+			artist = helpers.PromptString("Artist: ")
+		} else {
+			fmt.Printf("Artist (Enter to repeat '%s'): ", lastArtist)
+			artist = helpers.PromptString("")
+			if artist == "" {
+				artist = lastArtist
+			}
+		}
+		
+		if artist == "" {
+			fmt.Println("Artist is required.")
+			continue
+		}
+		
+		lastArtist = artist
+		
+		title := helpers.PromptString("Title: ")
+		if title == "" {
+			fmt.Println("Title is required.")
+			continue
+		}
+		
+		manualYear := helpers.PromptOptionalInt("Year (optional): ")
+		formatCategory := helpers.PromptValidFormat("Format category (CD, Vinyl, Cassette): ")
+		formatDetailInput := helpers.PromptFormatDetail(formatCategory)
+		var formatDetail *string
+		if formatDetailInput != "" {
+			formatDetail = &formatDetailInput
+		}
+
+		// Insert release
+		id, err := db.InsertRelease(database, artist, title, manualYear, nil)
+		if err != nil {
+			return err
+		}
+
+		// Insert ownership
+		_, err = db.InsertOwnership(database, db.OwnershipInput{
+			ReleaseID:      id,
+			FormatCategory: formatCategory,
+			FormatDetail:   formatDetail,
+		})
+		if err != nil {
+			return err
+		}
+
+		fmt.Println("Added release to collection.")
+		
+		// Ask if they want to add another
+		fmt.Print("\nAdd another? (y/N): ")
+		var response string
+		fmt.Scanln(&response)
+		if response != "y" && response != "Y" {
+			break
+		}
+		fmt.Println()
 	}
 
-	// Insert release
-	id, err := db.InsertRelease(database, artist, title, manualYear, nil)
-	if err != nil {
-		return err
-	}
-
-	// Insert ownership
-	_, err = db.InsertOwnership(database, db.OwnershipInput{
-		ReleaseID:      id,
-		FormatCategory: formatCategory,
-		FormatDetail:   formatDetail,
-	})
-	if err != nil {
-		return err
-	}
-
-	fmt.Println("Added release to collection.")
 	return nil
 }
 
