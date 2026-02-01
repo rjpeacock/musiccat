@@ -14,17 +14,27 @@ import (
 )
 
 var updateCmd = &cobra.Command{
-	Use:     "update [id]",
+	Use:     "update [id] | update --release-id <ID>",
 	Aliases: []string{"u", "up"},
-	Short:   "Update ownership details (interactive by default)",
+	Short:   "Update ownership details or release metadata",
 	Long: `Update ownership details interactively or using flags.
-Editable fields: acquired_date, cost, source, notes, is_promo, is_pirate.
-Non-editable fields: artist, title, year, format, MusicBrainz ID.
-Interactive mode is used when no flags are provided.
+Editable ownership fields: acquired_date, cost, source, notes, is_promo, is_pirate, format_detail.
+Editable release fields (via --release-id): artist, title, year.
 
-If no ID is provided, updates the most recently added item.`,
+Interactive mode is used when no flags are provided.
+If no ID is provided, updates the most recently added item.
+Use --release-id to update release metadata (affects all ownership entries for that release).`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		releaseIDFlag, _ := cmd.Flags().GetInt("release-id")
+		
+		if releaseIDFlag > 0 {
+			if len(args) > 0 {
+				return fmt.Errorf("cannot specify both ownership ID and --release-id")
+			}
+			return updateRelease(releaseIDFlag, cmd)
+		}
+		
 		var id int
 		var err error
 		
@@ -323,7 +333,123 @@ func nullFloat64Value(nf sql.NullFloat64) float64 {
 	return 0
 }
 
+func updateRelease(releaseID int, cmd *cobra.Command) error {
+	// Open DB
+	database, err := db.OpenDB()
+	if err != nil {
+		return err
+	}
+	defer database.Close()
+
+	// Bootstrap if needed
+	if err := db.BootstrapDB(database); err != nil {
+		return err
+	}
+
+	// Check release exists and get current details
+	var currentArtist, currentTitle string
+	var currentYearNull sql.NullInt32
+	err = database.QueryRow(`
+		SELECT artist, title, year 
+		FROM releases 
+		WHERE id = ?
+	`, releaseID).Scan(&currentArtist, &currentTitle, &currentYearNull)
+
+	if err == sql.ErrNoRows {
+		return fmt.Errorf("no release found with ID %d", releaseID)
+	}
+	if err != nil {
+		return err
+	}
+
+	currentYearStr := "not set"
+	if currentYearNull.Valid {
+		currentYearStr = fmt.Sprintf("%d", currentYearNull.Int32)
+	}
+
+	fmt.Printf("Updating release ID %d:\n", releaseID)
+	fmt.Printf("  Current: %s - %s (%s)\n\n", currentArtist, currentTitle, currentYearStr)
+
+	// Check which flags are provided
+	hasFlags := cmd.Flags().Changed("artist") || cmd.Flags().Changed("title") || cmd.Flags().Changed("year")
+	
+	if !hasFlags {
+		// Interactive mode
+		newArtist := helpers.PromptString(fmt.Sprintf("Artist [%s]: ", currentArtist))
+		if newArtist == "" {
+			newArtist = currentArtist
+		}
+
+		newTitle := helpers.PromptString(fmt.Sprintf("Title [%s]: ", currentTitle))
+		if newTitle == "" {
+			newTitle = currentTitle
+		}
+
+		yearPrompt := fmt.Sprintf("Year [%s]: ", currentYearStr)
+		newYear := helpers.PromptOptionalInt(yearPrompt)
+
+		// Update release
+		_, err = database.Exec(`
+			UPDATE releases 
+			SET artist = ?, title = ?, year = ?
+			WHERE id = ?
+		`, newArtist, newTitle, newYear, releaseID)
+		
+		if err != nil {
+			return err
+		}
+
+		fmt.Println("Release updated successfully.")
+		return nil
+	}
+
+	// Flag-driven mode
+	updateFields := []string{}
+	updateArgs := []interface{}{}
+
+	if cmd.Flags().Changed("artist") {
+		artist, _ := cmd.Flags().GetString("artist")
+		updateFields = append(updateFields, "artist = ?")
+		updateArgs = append(updateArgs, artist)
+	}
+
+	if cmd.Flags().Changed("title") {
+		title, _ := cmd.Flags().GetString("title")
+		updateFields = append(updateFields, "title = ?")
+		updateArgs = append(updateArgs, title)
+	}
+
+	if cmd.Flags().Changed("year") {
+		year, _ := cmd.Flags().GetInt("year")
+		if year == 0 {
+			updateFields = append(updateFields, "year = NULL")
+		} else {
+			updateFields = append(updateFields, "year = ?")
+			updateArgs = append(updateArgs, year)
+		}
+	}
+
+	if len(updateFields) == 0 {
+		return fmt.Errorf("no fields to update")
+	}
+
+	updateQuery := "UPDATE releases SET " + strings.Join(updateFields, ", ") + " WHERE id = ?"
+	updateArgs = append(updateArgs, releaseID)
+
+	_, err = database.Exec(updateQuery, updateArgs...)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("Release updated successfully.")
+	return nil
+}
+
 func init() {
+	updateCmd.Flags().Int("release-id", 0, "Update release metadata (artist, title, year) by release ID")
+	updateCmd.Flags().String("artist", "", "Update artist name (only with --release-id)")
+	updateCmd.Flags().String("title", "", "Update title (only with --release-id)")
+	updateCmd.Flags().Int("year", 0, "Update year (only with --release-id, use 0 to clear)")
 	updateCmd.Flags().Float64("cost", 0, "Update cost (use 0 to clear)")
 	updateCmd.Flags().String("acquired-date", "", "Update acquired date (use empty string to clear)")
 	updateCmd.Flags().String("source", "", "Update source (use empty string to clear)")

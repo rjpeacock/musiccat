@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"database/sql"
 	"fmt"
 	"strings"
 
@@ -13,19 +14,29 @@ import (
 )
 
 var addCmd = &cobra.Command{
-	Use:     `add "<artist name>"`,
+	Use:     `add "<artist name>" | add --release-id <ID>`,
 	Aliases: []string{"a"},
-	Short:   "Search and add releases by artist",
+	Short:   "Search and add releases by artist or add another copy by release ID",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		manual, _ := cmd.Flags().GetBool("manual")
+		releaseID, _ := cmd.Flags().GetInt("release-id")
+		
 		if manual {
 			if len(args) != 0 {
 				return fmt.Errorf("--manual takes no arguments")
 			}
 			return addManual()
 		}
+		
+		if releaseID > 0 {
+			if len(args) != 0 {
+				return fmt.Errorf("--release-id takes no artist name argument")
+			}
+			return addByReleaseID(releaseID)
+		}
+		
 		if len(args) == 0 {
-			return fmt.Errorf("requires artist name argument")
+			return fmt.Errorf("requires artist name argument or --release-id flag")
 		}
 		artistName := strings.Join(args, " ")
 		pageSize, _ := cmd.Flags().GetInt("page-size")
@@ -253,6 +264,96 @@ func addManual() error {
 	return nil
 }
 
+func addByReleaseID(releaseID int) error {
+	// Load config for current format
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		return err
+	}
+	if cfg.CurrentFormat == "" {
+		return fmt.Errorf("no current format set; use 'musiccat set-format <FORMAT>' first")
+	}
+
+	// Open DB
+	database, err := db.OpenDB()
+	if err != nil {
+		return err
+	}
+	defer database.Close()
+
+	// Bootstrap if needed
+	if err := db.BootstrapDB(database); err != nil {
+		return err
+	}
+
+	// Verify release exists and get details
+	var artist, title string
+	var yearNull sql.NullInt32
+	err = database.QueryRow(`
+		SELECT artist, title, year 
+		FROM releases 
+		WHERE id = ?
+	`, releaseID).Scan(&artist, &title, &yearNull)
+
+	if err == sql.ErrNoRows {
+		return fmt.Errorf("no release found with ID %d", releaseID)
+	}
+	if err != nil {
+		return err
+	}
+
+	yearStr := "????"
+	if yearNull.Valid {
+		yearStr = fmt.Sprintf("%d", yearNull.Int32)
+	}
+
+	fmt.Printf("Adding another copy of:\n  %s - %s (%s)\n\n", artist, title, yearStr)
+
+	// Prompt for format detail
+	formatDetailInput := helpers.PromptFormatDetail(cfg.CurrentFormat)
+	var formatDetail *string
+	if formatDetailInput != "" {
+		formatDetail = &formatDetailInput
+	}
+
+	// Prompt for notes
+	notesInput := helpers.PromptString("Notes (optional): ")
+	var notes *string
+	if notesInput != "" {
+		notes = &notesInput
+	}
+
+	// Prompt for promo
+	isPromo := helpers.PromptOptionalBool("Is this a promo? (y/n, optional): ", false)
+	promoVal := false
+	if isPromo != nil {
+		promoVal = *isPromo
+	}
+
+	// Prompt for pirate
+	isPirate := helpers.PromptOptionalBool("Is this a pirate copy? (y/n, optional): ", false)
+	pirateVal := false
+	if isPirate != nil {
+		pirateVal = *isPirate
+	}
+
+	// Insert ownership
+	_, err = db.InsertOwnership(database, db.OwnershipInput{
+		ReleaseID:      int64(releaseID),
+		FormatCategory: cfg.CurrentFormat,
+		FormatDetail:   formatDetail,
+		Notes:          notes,
+		IsPromo:        promoVal,
+		IsPirate:       pirateVal,
+	})
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("Added ownership entry.")
+	return nil
+}
+
 // autoFormatDetail determines the format detail based on format category and release type
 func autoFormatDetail(formatCategory, releaseType string) string {
 	upperFormat := strings.ToUpper(formatCategory)
@@ -275,6 +376,7 @@ func autoFormatDetail(formatCategory, releaseType string) string {
 
 func init() {
 	addCmd.Flags().Bool("manual", false, "Manually enter release details")
+	addCmd.Flags().Int("release-id", 0, "Add another copy of an existing release by release ID")
 	addCmd.Flags().Int("page-size", 50, "Number of releases per page")
 	addCmd.Flags().String("sort", "", "Sort by field(s): type, year, title (comma-separated)")
 	addCmd.Flags().Bool("desc", false, "Reverse sort order")
