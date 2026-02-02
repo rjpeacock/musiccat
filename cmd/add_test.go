@@ -12,7 +12,7 @@ import (
 // TestMusicBrainzRequest verifies that MusicBrainz API requests work with IPv4 and retry logic
 func TestMusicBrainzRequest(t *testing.T) {
 	// Test searching for a well-known artist
-	artists, err := musicbrainz.SearchArtists("Radiohead")
+	artists, err := musicbrainz.SearchArtists("Radiohead", 25, 0)
 	if err != nil {
 		t.Fatalf("searchArtists failed: %v", err)
 	}
@@ -27,7 +27,7 @@ func TestMusicBrainzRequest(t *testing.T) {
 		if artist.Name == "Radiohead" {
 			found = true
 			// Test unfiltered release group search for this artist
-			releaseGroups, err := musicbrainz.SearchReleaseGroups(artist.ID, false, false, 0, "", 0)
+			releaseGroups, err := musicbrainz.SearchReleaseGroups(artist.ID, false, false, false, false, false, false, 0, "", 0)
 			if err != nil {
 				t.Fatalf("searchReleaseGroups failed: %v", err)
 			}
@@ -36,7 +36,7 @@ func TestMusicBrainzRequest(t *testing.T) {
 			}
 
 			// Test filtered release group search for this artist
-			filteredGroups, err := musicbrainz.SearchReleaseGroups(artist.ID, true, false, 1995, "", 0)
+			filteredGroups, err := musicbrainz.SearchReleaseGroups(artist.ID, true, false, false, false, false, false, 1995, "", 0)
 			if err != nil {
 				t.Fatalf("searchReleaseGroupsWithFilters failed: %v", err)
 			}
@@ -56,7 +56,7 @@ func TestMusicBrainzRequest(t *testing.T) {
 // TestTwoStageSearchWorkflow verifies the two-stage search process
 func TestTwoStageSearchWorkflow(t *testing.T) {
 	// Stage 1: Artist search (no filters applied)
-	artists, err := musicbrainz.SearchArtists("Beatles")
+	artists, err := musicbrainz.SearchArtists("Beatles", 25, 0)
 	if err != nil {
 		t.Fatalf("Stage 1 - artist search failed: %v", err)
 	}
@@ -81,6 +81,10 @@ func TestTwoStageSearchWorkflow(t *testing.T) {
 	// Stage 2: Release group search with filters
 	albumOnly := true
 	singleOnly := false
+	epOnly := false
+	compilationOnly := false
+	liveOnly := false
+	soundtrackOnly := false
 	year := 1967
 	titleFilter := ""
 
@@ -88,6 +92,10 @@ func TestTwoStageSearchWorkflow(t *testing.T) {
 		beatlesArtist.ID,
 		albumOnly,
 		singleOnly,
+		epOnly,
+		compilationOnly,
+		liveOnly,
+		soundtrackOnly,
 		year,
 		titleFilter,
 		0,
@@ -115,7 +123,7 @@ func TestTwoStageSearchWorkflow(t *testing.T) {
 
 // TestFilterCombinations tests various filter combinations
 func TestFilterCombinations(t *testing.T) {
-	artists, err := musicbrainz.SearchArtists("Radiohead")
+	artists, err := musicbrainz.SearchArtists("Radiohead", 25, 0)
 	if err != nil {
 		t.Fatalf("Failed to find Radiohead: %v", err)
 	}
@@ -133,7 +141,7 @@ func TestFilterCombinations(t *testing.T) {
 	}
 
 	// Test album-only filter
-	albums, err := musicbrainz.SearchReleaseGroups(radiohead.ID, true, false, 0, "", 0)
+	albums, err := musicbrainz.SearchReleaseGroups(radiohead.ID, true, false, false, false, false, false, 0, "", 0)
 	if err != nil {
 		t.Fatalf("Album filter failed: %v", err)
 	}
@@ -144,7 +152,7 @@ func TestFilterCombinations(t *testing.T) {
 	}
 
 	// Test single-only filter
-	singles, err := musicbrainz.SearchReleaseGroups(radiohead.ID, false, true, 0, "", 0)
+	singles, err := musicbrainz.SearchReleaseGroups(radiohead.ID, false, true, false, false, false, false, 0, "", 0)
 	if err != nil {
 		t.Fatalf("Single filter failed: %v", err)
 	}
@@ -155,7 +163,7 @@ func TestFilterCombinations(t *testing.T) {
 	}
 
 	// Test year filter
-	year2007, err := musicbrainz.SearchReleaseGroups(radiohead.ID, false, false, 2007, "", 0)
+	year2007, err := musicbrainz.SearchReleaseGroups(radiohead.ID, false, false, false, false, false, false, 2007, "", 0)
 	if err != nil {
 		t.Fatalf("Year filter failed: %v", err)
 	}
@@ -167,7 +175,7 @@ func TestFilterCombinations(t *testing.T) {
 	}
 
 	// Test title filter
-	titleFilter, err := musicbrainz.SearchReleaseGroups(radiohead.ID, false, false, 0, "Paranoid", 0)
+	titleFilter, err := musicbrainz.SearchReleaseGroups(radiohead.ID, false, false, false, false, false, false, 0, "Paranoid", 0)
 	if err != nil {
 		t.Fatalf("Title filter failed: %v", err)
 	}

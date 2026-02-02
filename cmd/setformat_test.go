@@ -30,7 +30,7 @@ func TestSetFormatCommand(t *testing.T) {
 		{"valid uppercase CD", []string{"CD"}, false, "CD"},
 		{"valid mixed Vinyl", []string{"Vinyl"}, false, "Vinyl"},
 		{"valid cassette", []string{"cassette"}, false, "Cassette"},
-		{"invalid format", []string{"digital"}, true, ""},
+		{"invalid format", []string{"betamax"}, true, ""},
 		{"no args", []string{}, true, ""},
 		{"too many args", []string{"cd", "vinyl"}, true, ""},
 	}
@@ -39,11 +39,13 @@ func TestSetFormatCommand(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			os.Remove(tempConfig)
 			
-			setFormatCmd.SetArgs(tt.args)
-			err := setFormatCmd.Execute()
+			// Execute through rootCmd to ensure proper Cobra validation
+			args := append([]string{"set-format"}, tt.args...)
+			rootCmd.SetArgs(args)
+			err := rootCmd.Execute()
 			
 			if (err != nil) != tt.wantErr {
-				t.Errorf("setFormatCmd.Execute() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("set-format execution error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 
