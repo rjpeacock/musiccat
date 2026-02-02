@@ -14,7 +14,8 @@ type Config struct {
 const configDir = ".musiccat"
 const configFile = "config.toml"
 
-func GetConfigPath() (string, error) {
+// GetConfigPath is a variable holding a function, allowing it to be mocked in tests
+var GetConfigPath = func() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
