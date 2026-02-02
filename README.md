@@ -37,32 +37,51 @@ A Go CLI application to catalogue a personal music collection.
 
 ### First Steps
 
-1. **Add your first release:**
+1. **Set your preferred format:**
+   ```bash
+   mc set-format CD
+   ```
+
+2. **Add your first release:**
    ```bash
    mc add "Blur"
    # Or use the short alias:
    mc a "Radiohead"
+   # Use 00 for next page, 99 for previous page in artist search
    ```
    
    Select releases from the MusicBrainz results, mark as promo/pirate with `p`/`i` suffix.
 
-2. **List your collection:**
+3. **Add a manual entry (not in MusicBrainz):**
+   ```bash
+   mc add --manual
+   # Press Enter to repeat last artist for batch entry
+   # Answer 'y' to add another release
+   ```
+
+4. **List your collection:**
    ```bash
    mc list
    mc ls --artist Blur
-   mc l --format Vinyl
+   mc l --format Vinyl --tag bootleg
    ```
 
-3. **View statistics:**
+5. **Find missing releases:**
+   ```bash
+   mc missing "Radiohead" --album
+   ```
+
+6. **View statistics:**
    ```bash
    mc stats
    mc st
    ```
 
-4. **Update an entry:**
+7. **Update an entry:**
    ```bash
    mc update 5
    mc u 10 --acquired-date 2024-06-15 --cost 12.99
+   mc u --release-id 42 --year 1995
    ```
 
 ### Common Workflows
@@ -78,7 +97,34 @@ mc add "Artist Name"
 ```bash
 mc list --artist "Stone Roses" --format Vinyl
 mc list --promo --sort year
-mc list --source "Record Store" --desc
+mc list --tag bootleg --desc
+mc list --year 1995
+```
+
+**Add another copy of existing release:**
+```bash
+mc add --release-id 42
+# See release ID in 'mc list' output (RelID column)
+```
+
+**Update release metadata:**
+```bash
+mc update --release-id 42 --year 1995
+mc update --release-id 42 --artist "Various Artists"
+```
+
+**Fix format category mistakes:**
+```bash
+mc update 123 --format-category CD
+# For bulk: for id in 123 124 125; do mc update $id --format-category CD; done
+```
+
+**Tag management:**
+```bash
+mc update 10 --tag bootleg,live
+mc tag rename old-tag new-tag
+mc tag delete unwanted-tag
+mc port --pattern "bootleg|promo"  # Migrate notes to tags
 ```
 
 **Sync MusicBrainz data:**
@@ -96,19 +142,41 @@ mc r
 
 ### Commands
 - `add (a)` - Search and add releases by artist
-- `list (ls, l)` - List releases with filtering
-- `update (u, up)` - Update ownership details
+  - `--release-id <ID>` - Add another copy of existing release
+  - `--manual` - Manually enter release details (with artist cache)
+  - `--album`, `--single`, `--ep`, etc. - Filter by type
+- `list (ls, l)` - List releases with filtering (shows ownership ID and release ID)
+  - `--tag <name>` - Filter by tag
+  - `--artist`, `--title`, `--year`, `--format` - Filter options
+  - `--sort <field>` - Sort by id, artist, title, year, format, added
+- `missing (m)` - Find releases you don't own for an artist
+- `update (u, up)` - Update ownership or release details
+  - `update [id]` - Update ownership entry
+  - `--release-id <ID>` - Update release metadata (artist, title, year)
+  - `--format-category <format>` - Change format category
+  - `--tag`, `--remove-tag`, `--set-tag` - Manage tags
+- `tag` - Tag management
+  - `rename <old> <new>` - Rename tag
+  - `delete <name>` - Delete tag
+- `port` - Migrate notes patterns to tags
 - `stats (st)` - Display collection statistics
-- `recent (r)` - Show recently added items
+- `recent (r)` - Show recently added items (with tags)
 - `sync` - Sync MusicBrainz metadata
-- `undo (un)` - Remove ownership entries
+- `undo (un)` - Remove ownership entries (with confirmation for older entries)
 - `set-format` - Set default format for batch adding
 
 ### Supported Formats
-- **CD**: Album, Single, EP, Maxi-Single, Promo, Digipak
-- **Vinyl**: LP, 12", 10", 7", Single, EP, Picture Disc
+- **CD**: Album, Single, EP, Maxi (no "CD" prefix)
+- **Vinyl**: 7", 10", 12", Album, LP
 - **Cassette**: Album, Single, Tape
 - **Digital**: Album, Single, EP
+
+### Tags
+- Tags are automatically canonicalized (lowercase, hyphenated)
+- Add tags: `mc update 10 --tag bootleg,live`
+- Filter by tag: `mc list --tag bootleg`
+- Manage tags: `mc tag rename old new`, `mc tag delete unwanted`
+- Migrate from notes: `mc port --pattern "bootleg|promo"`
 
 ### Item Modifiers
 When adding releases, use these suffixes:
@@ -118,9 +186,16 @@ When adding releases, use these suffixes:
 - Combined: `14ip(2)` - Pirate promo, 2 copies
 
 ### Data Storage
-- Database: `~/.musiccat/musiccat.db` (SQLite)
+- Database: `~/.musiccat/musiccat.db` (SQLite with WAL mode)
+- Config: `~/.musiccat/config.toml`
+- Tables: releases, ownership, tags, ownership_tags
 - Automatic schema migrations on first run
 - MusicBrainz API for metadata
+
+### Artist Search Navigation
+- Enter number to select artist
+- `00` - Next page (25 artists per page)
+- `99` - Previous page
 
 ## Development
 

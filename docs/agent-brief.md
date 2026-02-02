@@ -141,7 +141,8 @@ Agents must read:
 
 ### 2. `musiccat add "<artist name>"`
 
-- Search MusicBrainz for artists
+- Search MusicBrainz for artists with pagination (25 per page)
+- Artist selection: enter number, `00` for next page, `99` for previous page
 - User selects correct artist
 - Fetch release groups for that artist
 - Display: title, year, release type (with secondary types if present)
@@ -170,39 +171,91 @@ Agents must read:
 - `--sort <fields>`: Sort by fields (type, year, title)
 - `--desc`: Reverse sort order
 - `--pirate`: Mark all selected releases as pirate copies
+- `--release-id <ID>`: Add another copy of an existing release (prompts for format detail, notes, promo, pirate)
+
+### 2b. `musiccat add --release-id <ID>`
+
+- Add another copy of an existing release without searching
+- Display current release details (artist, title, year)
+- Prompt for format detail, notes, promo status, pirate status
+- Uses current format category from config
+- Useful for adding variants or duplicates quickly
 
 ### 3. `musiccat add --manual`
 
 For releases not in MusicBrainz:
 
 - Prompt for:
-  - artist
+  - artist (first time: type name; subsequent: press Enter to repeat last artist)
   - title
   - year (optional)
   - format category (shows suggested format details)
   - format detail (optional, with suggestions)
+- After adding each release, prompt "Add another? (y/N)"
+- Artist cache persists within session for batch entry
 - Set `musicbrainz_release_group_id` = NULL
 - Insert into both tables
 
+**Use case:** Batch-adding multiple releases from the same artist (e.g., Various Artists compilations)
+
 ### 4. `musiccat list`
 
-- List all stored releases with ownership IDs
-- Display format_category, format_detail, and notes
-- Optional filters: artist, format, promo, source, notes
-- Sorting by artist, title, year, format, added (default)
+- List all stored releases with ownership IDs and release IDs
+- Display columns: ID, RelID, Artist, Title, Year, Format, Detail, Promo, Pirate, Acquired, Importance, Notes, Tags
+- Release ID (RelID) shows which ownership entries share the same release
+- Optional filters: artist, title, year, format, tag
+- Sorting by id, artist, title, year, format, format_detail, added (default: year)
 - Offline-only
 
-### 5. `musiccat update "<artist>" "<title>"`
+**Filters:**
 
-- Locate matching ownership rows
-- Prompt user if multiple matches
-- Update:
-  - Ownership fields: `acquired_date`, `cost`, `source`, `notes`, `format_category`, `format_detail`, `is_promo`, `is_pirate`
-  - Release fields: `artist`, `title`, `year`, `musicbrainz_release_group_id`
-- Tag management:
-  - `--tag <tagname>`: Add tag (repeatable)
-  - `--remove-tag <tagname>`: Remove tag (repeatable)
-  - `--set-tag <tagname>`: Replace all tags with specified tags (repeatable)
+- `--artist <name>`: Filter by artist (partial match)
+- `--title <name>`: Filter by title (partial match)
+- `--year <YYYY>`: Filter by year
+- `--format <name>`: Filter by format (CD, Vinyl, Cassette, Digital)
+- `--tag <tagname>`: Filter by tag
+- `--promo`: Show only promo items
+- `--source <name>`: Filter by source
+- `--notes <text>`: Filter by notes content
+- `--sort <fields>`: Sort by field
+- `--desc`: Reverse sort order
+
+### 5. `musiccat update [id]`
+
+- Update ownership entry by ID (or most recent if no ID provided)
+- Interactive mode: prompts for all editable fields
+- Flag mode: only update specified fields
+
+**Update ownership fields:**
+
+- `--acquired-date <date>`: Update acquired date
+- `--cost <amount>`: Update cost
+- `--source <source>`: Update source
+- `--notes <text>`: Update notes
+- `--format-category <format>`: Change format category (CD, Vinyl, Cassette, Digital)
+- `--format-detail <detail>`: Update format detail
+- `--promo`: Mark as promo
+- `--pirate`: Mark as pirate
+
+**Tag management:**
+
+- `--tag <tagname>`: Add tag (repeatable)
+- `--remove-tag <tagname>`: Remove tag (repeatable)
+- `--set-tag <tagname>`: Replace all tags (repeatable)
+
+### 5b. `musiccat update --release-id <ID>`
+
+- Update release metadata (affects ALL ownership entries for that release)
+- Interactive mode: prompts for artist, title, year
+- Flag mode:
+  - `--artist <name>`: Update artist name
+  - `--title <title>`: Update title
+  - `--year <YYYY>`: Update year (0 to clear)
+
+**Use cases:**
+- Fix incorrect year on manually entered releases
+- Correct artist name typos
+- Update title metadata
 
 ### 6. `musiccat recent [--format <FORMAT>]`
 
@@ -214,8 +267,12 @@ For releases not in MusicBrainz:
 ### 7. `musiccat undo <ID | all>`
 
 - Delete ownership entries by ID
-- `all` undoes the most recent batch
-- Optional confirmation when multiple rows deleted
+- `all` undoes the most recent batch (last 10)
+- Confirmation required when:
+  - Deleting multiple rows (`all`)
+  - Deleting single entry NOT in last 5 added (safety guard)
+- Recent entries (last 5) can be quickly undone without confirmation
+- Shows details before deleting non-recent entries
 
 ### 8. `musiccat tag <subcommand>`
 
@@ -232,6 +289,27 @@ For releases not in MusicBrainz:
 - `--keep`: Keep extracted text in notes (default: remove)
 - Creates tags from matches (canonicalized)
 - Idempotent: can be re-run without duplicating tags
+
+### 10. `musiccat missing "<artist name>"`
+
+- Find releases you don't own yet for an artist
+- Search MusicBrainz for artist (with pagination: 00/99)
+- Fetch complete discography
+- Compare against owned releases (by MusicBrainz release group ID)
+- Display missing releases sorted by type → year → title
+- Shows count: "Found 42/87 releases you don't own yet"
+
+**Flags (same as `add`):**
+
+- `--exact`: Exact artist name match
+- `--album`: Only albums (excludes compilations, live, soundtracks)
+- `--single`: Only singles
+- `--ep`: Only EPs
+- `--compilation`: Only compilations
+- `--live`: Only live albums
+- `--soundtrack`: Only soundtracks
+- `--year <YYYY>`: Filter by year
+- `--title <string>`: Filter by title
 
 ---
 
