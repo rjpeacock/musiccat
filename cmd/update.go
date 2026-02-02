@@ -69,6 +69,7 @@ Use --release-id to update release metadata (affects all ownership entries for t
 		pirate, _ := cmd.Flags().GetBool("pirate")
 		notes, _ := cmd.Flags().GetString("notes")
 		formatDetail, _ := cmd.Flags().GetString("format-detail")
+		formatCategory, _ := cmd.Flags().GetString("format-category")
 		tag, _ := cmd.Flags().GetString("tag")
 		removeTag, _ := cmd.Flags().GetString("remove-tag")
 		setTag, _ := cmd.Flags().GetString("set-tag")
@@ -77,6 +78,7 @@ Use --release-id to update release metadata (affects all ownership entries for t
 		hasFlags := cmd.Flags().Changed("cost") || cmd.Flags().Changed("acquired-date") ||
 			cmd.Flags().Changed("source") || cmd.Flags().Changed("promo") || cmd.Flags().Changed("pirate") || 
 			cmd.Flags().Changed("notes") || cmd.Flags().Changed("format-detail") ||
+			cmd.Flags().Changed("format-category") ||
 			cmd.Flags().Changed("tag") || cmd.Flags().Changed("remove-tag") || cmd.Flags().Changed("set-tag")
 		if !hasFlags {
 			// Default to interactive mode if no flags provided
@@ -134,6 +136,10 @@ Use --release-id to update release metadata (affects all ownership entries for t
 		if cmd.Flags().Changed("format-detail") {
 			sets = append(sets, " format_detail = ?")
 			updateArgs = append(updateArgs, formatDetail)
+		}
+		if cmd.Flags().Changed("format-category") {
+			sets = append(sets, " format_category = ?")
+			updateArgs = append(updateArgs, formatCategory)
 		}
 
 		if len(sets) > 0 {
@@ -457,6 +463,7 @@ func init() {
 	updateCmd.Flags().Bool("pirate", false, "Update pirate status")
 	updateCmd.Flags().String("notes", "", "Update notes (use empty string to clear)")
 	updateCmd.Flags().String("format-detail", "", "Update format detail (use empty string to clear)")
+	updateCmd.Flags().String("format-category", "", "Update format category (CD, Vinyl, Cassette, Digital)")
 	updateCmd.Flags().String("tag", "", "Add tags (comma-separated)")
 	updateCmd.Flags().String("remove-tag", "", "Remove tags (comma-separated)")
 	updateCmd.Flags().String("set-tag", "", "Replace all tags (comma-separated)")
