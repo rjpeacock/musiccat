@@ -44,7 +44,7 @@ var listCmd = &cobra.Command{
 		}
 
 		// Query - show individual ownership entries with IDs
-		query := `SELECT o.id, r.artist, r.title, r.year, o.format_category, o.format_detail, o.is_promo, o.is_pirate, o.acquired_date, o.notes
+		query := `SELECT o.id, o.release_id, r.artist, r.title, r.year, o.format_category, o.format_detail, o.is_promo, o.is_pirate, o.acquired_date, o.notes
 			FROM ownership o
 			JOIN releases r ON o.release_id = r.id`
 		var queryArgs []interface{}
@@ -117,6 +117,7 @@ var listCmd = &cobra.Command{
 		// Collect all records first to avoid nested queries
 		type record struct {
 			id            int
+			releaseID     int
 			artist        string
 			title         string
 			year          *int
@@ -130,13 +131,13 @@ var listCmd = &cobra.Command{
 		var records []record
 
 		for rows.Next() {
-			var id int
+			var id, releaseID int
 			var artist, title, formatCategory string
 			var yearNull sql.NullInt32
 			var formatDetailNull, acquiredDateNull, notesNull sql.NullString
 			var isPromo, isPirate bool
 
-			err := rows.Scan(&id, &artist, &title, &yearNull, &formatCategory, &formatDetailNull, &isPromo, &isPirate, &acquiredDateNull, &notesNull)
+			err := rows.Scan(&id, &releaseID, &artist, &title, &yearNull, &formatCategory, &formatDetailNull, &isPromo, &isPirate, &acquiredDateNull, &notesNull)
 			if err != nil {
 				rows.Close()
 				return err
@@ -144,6 +145,7 @@ var listCmd = &cobra.Command{
 
 			rec := record{
 				id:             id,
+				releaseID:      releaseID,
 				artist:         artist,
 				title:          title,
 				formatCategory: formatCategory,
@@ -211,8 +213,8 @@ var listCmd = &cobra.Command{
 			}
 		}
 
-		fmt.Printf("%-5s %-25s %-40s %-6s %-10s %-10s %-5s %-5s %-12s %-10s %-30s %-20s\n", "ID", "Artist", "Title", "Year", "Format", "Detail", "Promo", "Pirate", "Acquired", "Importance", "Notes", "Tags")
-		fmt.Println(strings.Repeat("-", 187))
+		fmt.Printf("%-5s %-6s %-25s %-40s %-6s %-10s %-10s %-5s %-5s %-12s %-10s %-30s %-20s\n", "ID", "RelID", "Artist", "Title", "Year", "Format", "Detail", "Promo", "Pirate", "Acquired", "Importance", "Notes", "Tags")
+		fmt.Println(strings.Repeat("-", 193))
 
 		// Now process and display all records
 		for _, rec := range records {
@@ -256,8 +258,8 @@ var listCmd = &cobra.Command{
 				tagsStr = "[" + strings.Join(tagList, ", ") + "]"
 			}
 
-			fmt.Printf("%-5d %-25.25s %-40.40s %-6s %-10s %-10.10s %-5s %-5s %-12.12s %-10s %-30.30s %-20.20s\n",
-				rec.id, rec.artist, rec.title, yearStr, rec.formatCategory, detailStr, promoStr, pirateStr, acquiredStr, importanceStr, notesStr, tagsStr)
+			fmt.Printf("%-5d %-6d %-25.25s %-40.40s %-6s %-10s %-10.10s %-5s %-5s %-12.12s %-10s %-30.30s %-20.20s\n",
+				rec.id, rec.releaseID, rec.artist, rec.title, yearStr, rec.formatCategory, detailStr, promoStr, pirateStr, acquiredStr, importanceStr, notesStr, tagsStr)
 		}
 		return nil
 	},

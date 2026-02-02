@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"database/sql"
 	"fmt"
 	"strconv"
 
@@ -69,6 +70,64 @@ var undoCmd = &cobra.Command{
 			if err != nil {
 				return fmt.Errorf("invalid ID: %s", target)
 			}
+			
+			// Check if this ID is in the last 5 added entries
+			var recentIDs []int
+			rows, err := database.Query("SELECT id FROM ownership ORDER BY id DESC LIMIT 5")
+			if err != nil {
+				return err
+			}
+			for rows.Next() {
+				var recentID int
+				if err := rows.Scan(&recentID); err != nil {
+					rows.Close()
+					return err
+				}
+				recentIDs = append(recentIDs, recentID)
+			}
+			rows.Close()
+			if err := rows.Err(); err != nil {
+				return err
+			}
+			
+			isRecent := false
+			for _, recentID := range recentIDs {
+				if recentID == id {
+					isRecent = true
+					break
+				}
+			}
+			
+			// If not recent, fetch and display the record for confirmation
+			if !isRecent {
+				var artist, title, formatCategory string
+				var formatDetail sql.NullString
+				err = database.QueryRow(`
+					SELECT r.artist, r.title, o.format_category, o.format_detail
+					FROM ownership o
+					JOIN releases r ON o.release_id = r.id
+					WHERE o.id = ?
+				`, id).Scan(&artist, &title, &formatCategory, &formatDetail)
+				
+				if err == sql.ErrNoRows {
+					return fmt.Errorf("no ownership entry with ID %d", id)
+				}
+				if err != nil {
+					return err
+				}
+				
+				// Display the record and ask for confirmation
+				detail := ""
+				if formatDetail.Valid && formatDetail.String != "" {
+					detail = fmt.Sprintf(" (%s)", formatDetail.String)
+				}
+				fmt.Printf("About to delete:\n  ID %d: %s - %s [%s%s]\n\n", id, artist, title, formatCategory, detail)
+				fmt.Print("Are you sure? (y/N): ")
+				if !confirm() {
+					return fmt.Errorf("cancelled")
+				}
+			}
+			
 			result, err := database.Exec("DELETE FROM ownership WHERE id = ?", id)
 			if err != nil {
 				return err

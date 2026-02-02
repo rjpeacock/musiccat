@@ -9,9 +9,20 @@ import (
 const baseURL = "https://musicbrainz.org/ws/2"
 
 // SearchArtists searches for artists by name on MusicBrainz
-func SearchArtists(query string) ([]Artist, error) {
+// limit: number of results to fetch (0 = default 25, max 100)
+// offset: starting position for pagination
+func SearchArtists(query string, limit int, offset int) ([]Artist, error) {
 	encodedQuery := url.QueryEscape(query)
-	reqURL := fmt.Sprintf("%s/artist?query=artist:%s&fmt=json", baseURL, encodedQuery)
+	
+	// Default limit is 25, max is 100
+	if limit == 0 {
+		limit = 25
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	
+	reqURL := fmt.Sprintf("%s/artist?query=artist:%s&limit=%d&offset=%d&fmt=json", baseURL, encodedQuery, limit, offset)
 	
 	resp, err := MakeRequest(reqURL)
 	if err != nil {
