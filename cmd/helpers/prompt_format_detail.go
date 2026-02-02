@@ -3,6 +3,8 @@ package helpers
 import (
 	"fmt"
 	"strings"
+
+	"musiccat/internal/config"
 )
 
 var formatDetailSuggestions = map[string][]string{
@@ -18,7 +20,25 @@ func PromptFormatDetail(formatCategory string) string {
 		return PromptString("Format detail (optional): ")
 	}
 
+	// Check if there's a saved format detail setting
+	cfg, err := config.LoadConfig()
+	savedDetail := ""
+	if err == nil && cfg.CurrentFormatDetail != "" {
+		savedDetail = cfg.CurrentFormatDetail
+	}
+
 	suggestionStr := strings.Join(suggestions, ", ")
+	
+	if savedDetail != "" {
+		fmt.Printf("Suggested format details: %s\n", suggestionStr)
+		fmt.Printf("Using saved default: %s (press Enter to accept, or type new value)\n", savedDetail)
+		input := PromptString(fmt.Sprintf("Format detail [%s]: ", savedDetail))
+		if input == "" {
+			return savedDetail
+		}
+		return input
+	}
+
 	fmt.Printf("Suggested format details: %s\n", suggestionStr)
 	return PromptString("Format detail (optional): ")
 }

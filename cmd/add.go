@@ -356,6 +356,12 @@ func addByReleaseID(releaseID int) error {
 
 // autoFormatDetail determines the format detail based on format category and release type
 func autoFormatDetail(formatCategory, releaseType string) string {
+	// Check if there's a saved format detail setting that overrides inference
+	cfg, err := config.LoadConfig()
+	if err == nil && cfg.CurrentFormatDetail != "" {
+		return cfg.CurrentFormatDetail
+	}
+	
 	upperFormat := strings.ToUpper(formatCategory)
 	
 	switch upperFormat {

@@ -8,7 +8,8 @@ import (
 )
 
 type Config struct {
-	CurrentFormat string `toml:"current_format"`
+	CurrentFormat       string `toml:"current_format"`
+	CurrentFormatDetail string `toml:"current_format_detail"`
 }
 
 const configDir = ".musiccat"
