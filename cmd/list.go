@@ -15,15 +15,15 @@ var listCmd = &cobra.Command{
 	Use:     "list [artist]",
 	Aliases: []string{"ls", "l"},
 	Short:   "List all stored releases",
-	Args:  cobra.MaximumNArgs(1),
+	Args:    cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		artist, _ := cmd.Flags().GetString("artist")
-		
+
 		// If positional argument provided, use it as artist filter
 		if len(args) > 0 {
-			artist = args[0]
+			artist = parseArtistName(args)
 		}
-		
+
 		format, _ := cmd.Flags().GetString("format")
 		promo, _ := cmd.Flags().GetBool("promo")
 		source, _ := cmd.Flags().GetString("source")
@@ -116,17 +116,17 @@ var listCmd = &cobra.Command{
 
 		// Collect all records first to avoid nested queries
 		type record struct {
-			id            int
-			releaseID     int
-			artist        string
-			title         string
-			year          *int
+			id             int
+			releaseID      int
+			artist         string
+			title          string
+			year           *int
 			formatCategory string
-			formatDetail  *string
-			isPromo       bool
-			isPirate      bool
-			acquiredDate  *string
-			notes         *string
+			formatDetail   *string
+			isPromo        bool
+			isPirate       bool
+			acquiredDate   *string
+			notes          *string
 		}
 		var records []record
 
@@ -273,7 +273,7 @@ func init() {
 	listCmd.Flags().String("notes", "", "Filter by notes (partial, case-insensitive)")
 	listCmd.Flags().String("sort", "year", "Sort by field (artist, title, year, format, added)")
 	listCmd.Flags().Bool("desc", false, "Sort in descending order")
-	
+
 	// Shell completions
 	listCmd.RegisterFlagCompletionFunc("format", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return helpers.ValidFormats, cobra.ShellCompDirectiveNoFileComp
@@ -281,6 +281,6 @@ func init() {
 	listCmd.RegisterFlagCompletionFunc("sort", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return []string{"artist", "title", "year", "format", "added"}, cobra.ShellCompDirectiveNoFileComp
 	})
-	
+
 	rootCmd.AddCommand(listCmd)
 }

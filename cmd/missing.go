@@ -20,8 +20,8 @@ var missingCmd = &cobra.Command{
 		if len(args) == 0 {
 			return fmt.Errorf("requires artist name argument")
 		}
-		artistName := strings.Join(args, " ")
-		
+		artistName := parseArtistName(args)
+
 		exact, _ := cmd.Flags().GetBool("exact")
 		albumOnly, _ := cmd.Flags().GetBool("album")
 		singleOnly, _ := cmd.Flags().GetBool("single")
@@ -106,12 +106,12 @@ func findMissingReleases(artistName string, exact bool, albumOnly, singleOnly, e
 		if rg.FirstReleaseDate != "" && len(rg.FirstReleaseDate) >= 4 {
 			year = rg.FirstReleaseDate[:4]
 		}
-		
+
 		typeDisplay := rg.PrimaryType
 		if len(rg.SecondaryTypes) > 0 {
 			typeDisplay = fmt.Sprintf("%s + %s", rg.PrimaryType, strings.Join(rg.SecondaryTypes, " + "))
 		}
-		
+
 		fmt.Printf("%3d. %s - %s [%s]\n", i+1, year, rg.Title, typeDisplay)
 	}
 
@@ -126,7 +126,7 @@ func getOwnedReleaseGroupIDs(database *sql.DB, artistName string) ([]string, err
 		JOIN ownership o ON r.id = o.release_id
 		WHERE r.artist = ? AND r.musicbrainz_release_group_id IS NOT NULL
 	`
-	
+
 	rows, err := database.Query(query, artistName)
 	if err != nil {
 		return nil, err
