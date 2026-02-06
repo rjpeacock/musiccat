@@ -20,25 +20,25 @@ var addCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		manual, _ := cmd.Flags().GetBool("manual")
 		releaseID, _ := cmd.Flags().GetInt("release-id")
-		
+
 		if manual {
 			if len(args) != 0 {
 				return fmt.Errorf("--manual takes no arguments")
 			}
 			return addManual()
 		}
-		
+
 		if releaseID > 0 {
 			if len(args) != 0 {
 				return fmt.Errorf("--release-id takes no artist name argument")
 			}
 			return addByReleaseID(releaseID)
 		}
-		
+
 		if len(args) == 0 {
 			return fmt.Errorf("requires artist name argument or --release-id flag")
 		}
-		artistName := strings.Join(args, " ")
+		artistName := parseArtistName(args)
 		pageSize, _ := cmd.Flags().GetInt("page-size")
 		sortFields, _ := cmd.Flags().GetString("sort")
 		desc, _ := cmd.Flags().GetBool("desc")
@@ -198,7 +198,7 @@ func addManual() error {
 	}
 
 	lastArtist := ""
-	
+
 	for {
 		// Prompts
 		var artist string
@@ -211,20 +211,20 @@ func addManual() error {
 				artist = lastArtist
 			}
 		}
-		
+
 		if artist == "" {
 			fmt.Println("Artist is required.")
 			continue
 		}
-		
+
 		lastArtist = artist
-		
+
 		title := helpers.PromptString("Title: ")
 		if title == "" {
 			fmt.Println("Title is required.")
 			continue
 		}
-		
+
 		manualYear := helpers.PromptOptionalInt("Year (optional): ")
 		formatCategory := helpers.PromptValidFormat("Format category (CD, Vinyl, Cassette): ")
 		formatDetailInput := helpers.PromptFormatDetail(formatCategory)
@@ -250,7 +250,7 @@ func addManual() error {
 		}
 
 		fmt.Println("Added release to collection.")
-		
+
 		// Ask if they want to add another
 		fmt.Print("\nAdd another? (y/N): ")
 		var response string
@@ -355,15 +355,10 @@ func addByReleaseID(releaseID int) error {
 }
 
 // autoFormatDetail determines the format detail based on format category and release type
-func autoFormatDetail(formatCategory, releaseType string) string {
-	// Check if there's a saved format detail setting that overrides inference
-	cfg, err := config.LoadConfig()
-	if err == nil && cfg.CurrentFormatDetail != "" {
-		return cfg.CurrentFormatDetail
-	}
-	
+// inferFormatDetailInternal contains the original inference logic
+func inferFormatDetailInternal(formatCategory, releaseType string) string {
 	upperFormat := strings.ToUpper(formatCategory)
-	
+
 	switch upperFormat {
 	case "CD", "CASSETTE":
 		// For CD and Cassette, auto-set to the release type
@@ -380,6 +375,53 @@ func autoFormatDetail(formatCategory, releaseType string) string {
 	}
 }
 
+// isCompatible checks if a format detail is compatible with a release type
+func isCompatible(formatCategory, formatDetail, releaseType string) bool {
+	upperFormat := strings.ToUpper(formatCategory)
+	upperDetail := strings.ToUpper(formatDetail)
+	upperType := strings.ToUpper(releaseType)
+
+	switch upperFormat {
+	case "CD", "CASSETTE":
+		// CD/Cassette: Album/Single/EP are all compatible with release types
+		return upperDetail == upperType
+
+	case "VINYL":
+		// Vinyl: Album conflicts with 7"/12", but Single is compatible with 7"/12"
+		if upperType == "ALBUM" && (upperDetail == "7\"" || upperDetail == "12\"") {
+			return false // Album on 7"/12" doesn't make sense
+		}
+		if upperType == "SINGLE" && (upperDetail == "7\"" || upperDetail == "12\"") {
+			return true // Single on 7"/12" is fine
+		}
+		if upperType == "ALBUM" && upperDetail == "ALBUM" {
+			return true // Album on Album is fine
+		}
+		// Other combinations depend on context
+		return true
+	}
+
+	return true // Default to compatible
+}
+
+func autoFormatDetail(formatCategory, releaseType string) string {
+	// Check if there's a saved format detail setting that might override inference
+	cfg, err := config.LoadConfig()
+	if err == nil && cfg.CurrentFormatDetail != "" {
+		// Check if musicbrainz inference conflicts with default
+		inferred := inferFormatDetailInternal(formatCategory, releaseType)
+		if inferred != "" && !isCompatible(formatCategory, cfg.CurrentFormatDetail, releaseType) {
+			// Musicbrainz inference conflicts and wins
+			return inferred
+		}
+		// Default setting is compatible, use it
+		return cfg.CurrentFormatDetail
+	}
+
+	// No override configured, use standard inference
+	return inferFormatDetailInternal(formatCategory, releaseType)
+}
+
 func init() {
 	addCmd.Flags().Bool("manual", false, "Manually enter release details")
 	addCmd.Flags().Int("release-id", 0, "Add another copy of an existing release by release ID")
@@ -387,14 +429,14 @@ func init() {
 	addCmd.Flags().String("sort", "", "Sort by field(s): type, year, title (comma-separated)")
 	addCmd.Flags().Bool("desc", false, "Reverse sort order")
 	addCmd.Flags().Bool("pirate", false, "Mark releases as pirate copies")
-	
+
 	// Add common release group filter flags
 	ReleaseGroupFilterFlags(addCmd)
-	
+
 	// Shell completions
 	addCmd.RegisterFlagCompletionFunc("sort", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return []string{"type", "year", "title", "type,year", "type,year,title"}, cobra.ShellCompDirectiveNoFileComp
 	})
-	
+
 	rootCmd.AddCommand(addCmd)
 }
