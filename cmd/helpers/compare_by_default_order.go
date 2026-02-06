@@ -1,6 +1,9 @@
 package helpers
 
-import "musiccat/external/musicbrainz"
+import (
+	"musiccat/external/musicbrainz"
+	"strings"
+)
 
 // CompareByDefaultOrder implements the default sorting logic
 func CompareByDefaultOrder(a, b musicbrainz.ReleaseGroup, desc bool) bool {
@@ -32,7 +35,7 @@ func CompareByDefaultOrder(a, b musicbrainz.ReleaseGroup, desc bool) bool {
 	// (e.g., pure Album before Album+Compilation)
 	aHasSecondary := len(a.SecondaryTypes) > 0
 	bHasSecondary := len(b.SecondaryTypes) > 0
-	
+
 	if aHasSecondary != bHasSecondary {
 		if desc {
 			return aHasSecondary // With secondary comes first when desc
@@ -50,14 +53,17 @@ func CompareByDefaultOrder(a, b musicbrainz.ReleaseGroup, desc bool) bool {
 		}
 		return *aYear < *bYear
 	} else if aYear != nil && bYear == nil {
-		return !desc // Years come before null years when ascending
+		return false // Non-null years come before null years
 	} else if aYear == nil && bYear != nil {
-		return desc // Null years come after years when ascending
+		return true // Null years come after non-null years
 	}
 
-	// Tertiary: title (alphabetical)
+	// Tertiary: title (alphabetical, case-insensitive, ignoring "The" prefix)
+	aSortKey := strings.ToLower(getSortKey(a.Title))
+	bSortKey := strings.ToLower(getSortKey(b.Title))
+
 	if desc {
-		return a.Title > b.Title
+		return aSortKey > bSortKey
 	}
-	return a.Title < b.Title
+	return aSortKey < bSortKey
 }

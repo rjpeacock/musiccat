@@ -1,6 +1,9 @@
 package helpers
 
-import "musiccat/external/musicbrainz"
+import (
+	"musiccat/external/musicbrainz"
+	"strings"
+)
 
 // CompareByCustomFields implements custom sorting based on specified fields
 func CompareByCustomFields(a, b musicbrainz.ReleaseGroup, sortFields []string, desc bool) bool {
@@ -33,15 +36,18 @@ func CompareByCustomFields(a, b musicbrainz.ReleaseGroup, sortFields []string, d
 			if aYear != nil && bYear != nil {
 				cmp = *aYear - *bYear
 			} else if aYear != nil && bYear == nil {
-				cmp = -1
+				cmp = -1 // Non-null years come before null years
 			} else if aYear == nil && bYear != nil {
-				cmp = 1
+				cmp = 1 // Null years come after non-null years
 			}
 
 		case "title":
-			if a.Title < b.Title {
+			aSortKey := strings.ToLower(getSortKey(a.Title))
+			bSortKey := strings.ToLower(getSortKey(b.Title))
+
+			if aSortKey < bSortKey {
 				cmp = -1
-			} else if a.Title > b.Title {
+			} else if aSortKey > bSortKey {
 				cmp = 1
 			} else {
 				cmp = 0
